@@ -1,93 +1,132 @@
-# Nginx Shop
+# Nginx 展示网站
 
+这是一个使用 Docker 和 Docker Compose 部署的 Nginx 静态网站演示项目，用于学习和测试 Nginx 的 HTTP 服务器功能。
 
+## 技术栈
 
-## Getting started
+- **Nginx**: Web 服务器
+- **Docker**: 容器化技术
+- **Docker Compose**: 容器编排
+- **HTML/CSS/JavaScript**: 前端技术
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## 项目结构
 
 ```
-cd existing_repo
-git remote add origin http://12.216.24.65:81/guopengfei/nginx-shop.git
-git branch -M main
-git push -uf origin main
+nginx-shop/
+├── docker-compose.yml      # Docker Compose 配置文件
+├── Dockerfile              # Docker 镜像构建文件
+├── nginx/
+│   └── nginx.conf         # Nginx 配置文件
+├── html/
+│   ├── index.html         # 主页面
+│   ├── css/
+│   │   └── style.css      # 样式文件
+│   └── js/
+│       └── main.js        # JavaScript 脚本
+└── logs/                  # Nginx 日志目录（自动创建）
 ```
 
-## Integrate with your tools
+## 快速开始
 
-- [ ] [Set up project integrations](http://12.216.24.65:81/guopengfei/nginx-shop/-/settings/integrations)
+### 前置要求
 
-## Collaborate with your team
+- Docker (版本 20.10+)
+- Docker Compose (版本 1.29+)
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+### 启动服务
 
-## Test and Deploy
+```bash
+# 构建并启动容器
+docker-compose up -d
 
-Use the built-in continuous integration in GitLab.
+# 查看日志
+docker-compose logs -f
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+# 停止服务
+docker-compose down
+```
 
-***
+### 访问网站
 
-# Editing this README
+启动成功后，在浏览器中访问：
+- http://localhost:8080
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## 功能特性
 
-## Suggestions for a good README
+1. **静态文件服务**: 高效提供 HTML、CSS、JavaScript 等静态资源
+2. **Gzip 压缩**: 启用 Gzip 压缩以减小传输文件大小
+3. **缓存控制**: 静态资源缓存策略
+4. **安全头**: 添加基本的安全响应头
+5. **API 端点**: 演示简单的 API 响应
+6. **响应式设计**: 适配不同屏幕尺寸
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+## Nginx 配置说明
 
-## Name
-Choose a self-explaining name for your project.
+主要配置项：
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+- **监听端口**: 80（容器内）
+- **工作进程**: auto（自动检测 CPU 核心数）
+- **Gzip 压缩**: 已启用
+- **静态文件缓存**: 30 天
+- **日志**: 访问日志和错误日志
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## 开发说明
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### 修改静态文件
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+修改 `html/` 目录下的文件后，需要重新构建镜像：
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+```bash
+docker-compose up -d --build
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+或者取消注释 `docker-compose.yml` 中的 volumes 挂载，实现实时修改（不推荐生产环境）。
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### 修改 Nginx 配置
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+修改 `nginx/nginx.conf` 后，需要重新构建镜像：
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+```bash
+docker-compose up -d --build
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+或者取消注释 `docker-compose.yml` 中的配置挂载。
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+### 查看日志
 
-## License
-For open source projects, say how it is licensed.
+```bash
+# 实时查看日志
+docker-compose logs -f nginx
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+# 查看访问日志
+tail -f logs/access.log
+
+# 查看错误日志
+tail -f logs/error.log
+```
+
+## 部署到 Linux 服务器
+
+1. 将项目文件上传到服务器
+2. 确保服务器已安装 Docker 和 Docker Compose
+3. 在项目目录执行：
+
+```bash
+docker-compose up -d
+```
+
+4. 配置防火墙开放 8080 端口（或修改为其他端口）
+
+## 端口修改
+
+如需修改端口，编辑 `docker-compose.yml` 中的端口映射：
+
+```yaml
+ports:
+  - "你的端口:80"
+```
+
+## 许可证
+
+本项目仅用于学习目的。
+

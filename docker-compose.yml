@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     container_name: nginx-shop
     ports:
-      - "8083:80"
+      - "80:80"
     volumes:
       # 可选：挂载静态文件目录以便开发时实时修改
       # - ./html:/usr/share/nginx/html:ro

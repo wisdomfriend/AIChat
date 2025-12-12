@@ -1,0 +1,56 @@
+-- 创建用户表
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP NULL,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- 创建代理访问日志表
+CREATE TABLE IF NOT EXISTS proxy_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    service VARCHAR(50) NOT NULL,
+    target_url VARCHAR(500) NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 插入默认用户
+INSERT IGNORE INTO users (username, password) VALUES
+('guopengfei_learning', 'Gpf_learning');
+
+-- 创建API密钥配置表
+CREATE TABLE IF NOT EXISTS api_keys (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    api_key VARCHAR(255) NOT NULL,
+    provider VARCHAR(50) DEFAULT 'deepseek',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 创建Token使用记录表
+CREATE TABLE IF NOT EXISTS token_usage (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    prompt_tokens INT DEFAULT 0,
+    completion_tokens INT DEFAULT 0,
+    total_tokens INT DEFAULT 0,
+    model VARCHAR(50) DEFAULT 'deepseek-chat',
+    request_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 插入默认DeepSeek API Key
+INSERT IGNORE INTO api_keys (api_key, provider, is_active) VALUES
+('sk-65b28c89462246eab967c91b52185878', 'deepseek', TRUE);
+
+-- 创建索引以提高查询性能
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_proxy_logs_user_id ON proxy_logs(user_id);
+CREATE INDEX idx_proxy_logs_timestamp ON proxy_logs(timestamp);
+CREATE INDEX idx_token_usage_user_id ON token_usage(user_id);
+CREATE INDEX idx_token_usage_request_time ON token_usage(request_time);

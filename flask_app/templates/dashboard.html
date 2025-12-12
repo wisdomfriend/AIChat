@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仪表板 - GuoPengFei学习网站</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <div class="header-content">
+                <h1>🎯 欢迎回来，{{ user.username }}！</h1>
+                <div class="user-info">
+                    <span>用户ID: {{ user.id }}</span>
+                    {% if user.last_login %}
+                        <span>最后登录: {{ user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else '首次登录' }}</span>
+                    {% endif %}
+                    <a href="{{ url_for('logout') }}" class="btn btn-secondary">登出</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="dashboard-main">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="welcome-section">
+                <h2>🚀 DeepSeek AI 控制面板</h2>
+                <p>欢迎，{{ user.username }}！这是GuoPengFei的学习网站。</p>
+                <div class="action-buttons">
+                    <a href="{{ url_for('admin') }}" class="btn btn-primary">管理设置</a>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <h3>📊 Token 使用统计</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📅</div>
+                        <h4>今日使用</h4>
+                        <p class="stat-value">{{ stats.today | int }}</p>
+                        <p class="stat-label">tokens</p>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">📆</div>
+                        <h4>本周使用</h4>
+                        <p class="stat-value">{{ stats.week | int }}</p>
+                        <p class="stat-label">tokens</p>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <h4>本月使用</h4>
+                        <p class="stat-value">{{ stats.month | int }}</p>
+                        <p class="stat-label">tokens</p>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">🎯</div>
+                        <h4>总计使用</h4>
+                        <p class="stat-value">{{ stats.total | int }}</p>
+                        <p class="stat-label">tokens</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h3>📊 系统信息</h3>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <h4>服务器状态</h4>
+                        <p>✅ Flask应用运行正常</p>
+                        <p>✅ MySQL数据库连接正常</p>
+                        <p>✅ Nginx反向代理已配置</p>
+                    </div>
+
+                    <div class="info-card">
+                        <h4>技术栈</h4>
+                        <ul>
+                            <li>🐍 Python Flask</li>
+                            <li>🐬 MySQL 8.0</li>
+                            <li>🌐 Nginx反向代理</li>
+                            <li>🤖 DeepSeek API</li>
+                            <li>🐳 Docker容器化</li>
+                        </ul>
+                    </div>
+
+                    <div class="info-card">
+                        <h4>功能特性</h4>
+                        <ul>
+                            <li>🔐 用户认证系统</li>
+                            <li>🔑 API Key管理</li>
+                            <li>📊 Token使用统计</li>
+                            <li>💬 AI对话功能</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="dashboard-footer">
+            <p>© 2024 GuoPengFei 学习网站 | 技术学习项目</p>
+            <p>请支持技术学习，谢谢！ 🙏</p>
+        </footer>
+    </div>
+</body>
+</html>

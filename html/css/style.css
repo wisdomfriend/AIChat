@@ -257,6 +257,119 @@ header {
     background: #45b869;
 }
 
+/* External Links */
+.external-links {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.service-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 12px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.service-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.google {
+    background: linear-gradient(135deg, #4285f4, #34a853);
+    color: white;
+}
+
+.google:hover {
+    background: linear-gradient(135deg, #3367d6, #2d8f47);
+}
+
+.youtube {
+    background: linear-gradient(135deg, #ff0000, #cc0000);
+    color: white;
+}
+
+.youtube:hover {
+    background: linear-gradient(135deg, #e60000, #aa0000);
+}
+
+.github {
+    background: linear-gradient(135deg, #24292e, #1a1e22);
+    color: white;
+}
+
+.github:hover {
+    background: linear-gradient(135deg, #1c2128, #14181d);
+}
+
+.link-icon {
+    font-size: 1.2rem;
+}
+
+.note {
+    font-size: 0.9rem;
+    color: #888;
+    margin-top: 1rem;
+    font-style: italic;
+}
+
+.proxy-section {
+    margin-top: 1.5rem;
+}
+
+.proxy-note {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: #856404;
+    line-height: 1.6;
+}
+
+.proxy-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.proxy-link-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.8rem;
+    background: var(--light-color);
+    border-radius: 6px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.proxy-link-item span {
+    font-weight: bold;
+    color: var(--dark-color);
+    font-size: 0.9rem;
+}
+
+.proxy-link-item code {
+    background: #f8f9fa;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    word-break: break-all;
+}
+
 /* About Section */
 .about {
     padding: 80px 0;

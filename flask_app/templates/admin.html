@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理页面 - GuoPengFei学习网站</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+    <div class="admin-container">
+        <header class="admin-header">
+            <div class="header-content">
+                <h1>⚙️ 系统管理</h1>
+                <div class="user-info">
+                    <span>用户: {{ user.username }}</span>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">返回首页</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-secondary">登出</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="admin-main">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- API Key 设置区域 -->
+            <div class="admin-section">
+                <h2>🔑 API Key 设置</h2>
+                <div class="api-key-card">
+                    <div class="form-group">
+                        <label for="api_key">DeepSeek API Key</label>
+                        <div class="input-group">
+                            <input type="password" id="api_key" class="form-control" value="{{ api_key }}" placeholder="请输入API Key">
+                            <button type="button" class="btn btn-primary" onclick="toggleApiKey()">显示/隐藏</button>
+                        </div>
+                        <small class="form-text">当前使用的API Key（已隐藏）</small>
+                    </div>
+                    <div class="form-group">
+                        <button type="button" class="btn btn-success" onclick="updateApiKey()">更新 API Key</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Token 使用统计区域 -->
+            <div class="admin-section">
+                <h2>📊 Token 使用统计</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>今日统计</h3>
+                        <div class="stat-details">
+                            <div class="stat-item">
+                                <span class="stat-label">Prompt Tokens:</span>
+                                <span class="stat-value">{{ stats.today.prompt | int }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Completion Tokens:</span>
+                                <span class="stat-value">{{ stats.today.completion | int }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Tokens:</span>
+                                <span class="stat-value highlight">{{ stats.today.total | int }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">请求次数:</span>
+                                <span class="stat-value">{{ stats.today.count | int }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <h3>本周统计</h3>
+                        <div class="stat-details">
+                            <div class="stat-item">
+                                <span class="stat-label">Prompt Tokens:</span>
+                                <span class="stat-value">{{ stats.week.prompt | int }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Completion Tokens:</span>
+                                <span class="stat-value">{{ stats.week.completion | int }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Tokens:</span>
+                                <span class="stat-value highlight">{{ stats.week.total | int }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">请求次数:</span>
+                                <span class="stat-value">{{ stats.week.count | int }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <h3>本月统计</h3>
+                        <div class="stat-details">
+                            <div class="stat-item">
+                                <span class="stat-label">Prompt Tokens:</span>
+                                <span class="stat-value">{{ stats.month.prompt | int }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Completion Tokens:</span>
+                                <span class="stat-value">{{ stats.month.completion | int }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Tokens:</span>
+                                <span class="stat-value highlight">{{ stats.month.total | int }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">请求次数:</span>
+                                <span class="stat-value">{{ stats.month.count | int }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <h3>总计统计</h3>
+                        <div class="stat-details">
+                            <div class="stat-item">
+                                <span class="stat-label">Prompt Tokens:</span>
+                                <span class="stat-value">{{ stats.total.prompt | int }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Completion Tokens:</span>
+                                <span class="stat-value">{{ stats.total.completion | int }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Tokens:</span>
+                                <span class="stat-value highlight">{{ stats.total.total | int }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">请求次数:</span>
+                                <span class="stat-value">{{ stats.total.count | int }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 最近使用记录 -->
+            <div class="admin-section">
+                <h2>📝 最近使用记录</h2>
+                <div class="usage-table-container">
+                    <table class="usage-table">
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>Prompt Tokens</th>
+                                <th>Completion Tokens</th>
+                                <th>Total Tokens</th>
+                                <th>模型</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if recent_usage %}
+                                {% for usage in recent_usage %}
+                                <tr>
+                                    <td>{{ usage.request_time.strftime('%Y-%m-%d %H:%M:%S') if usage.request_time else 'N/A' }}</td>
+                                    <td>{{ usage.prompt_tokens }}</td>
+                                    <td>{{ usage.completion_tokens }}</td>
+                                    <td><strong>{{ usage.total_tokens }}</strong></td>
+                                    <td>{{ usage.model }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center">暂无使用记录</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <footer class="admin-footer">
+            <p>© 2024 GuoPengFei 学习网站 | 技术学习项目</p>
+        </footer>
+    </div>
+
+    <script>
+        let apiKeyVisible = false;
+
+        function toggleApiKey() {
+            const input = document.getElementById('api_key');
+            apiKeyVisible = !apiKeyVisible;
+            input.type = apiKeyVisible ? 'text' : 'password';
+        }
+
+        async function updateApiKey() {
+            const apiKey = document.getElementById('api_key').value.trim();
+            
+            if (!apiKey) {
+                alert('请输入API Key');
+                return;
+            }
+
+            if (!confirm('确定要更新API Key吗？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/admin/api_key', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ api_key: apiKey })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('API Key更新成功！');
+                    location.reload();
+                } else {
+                    alert('更新失败: ' + result.message);
+                }
+            } catch (error) {
+                alert('请求失败: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
+

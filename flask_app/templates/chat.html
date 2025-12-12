@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek AI 聊天</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+</head>
+<body>
+    <div class="chat-app">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <button class="new-chat-btn" onclick="clearChat()" title="新对话">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span>新对话</span>
+                </button>
+            </div>
+            
+            <div class="sidebar-content">
+                <div class="user-info">
+                    <div class="user-avatar">{{ user.username[0].upper() }}</div>
+                    <div class="user-details">
+                        <div class="user-name">{{ user.username }}</div>
+                        <div class="user-status">在线</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <a href="{{ url_for('admin') }}" class="sidebar-link">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M10 2L2 7V9C2 13.9706 5.58172 18 10 18C14.4183 18 18 13.9706 18 9V7L10 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10 10C11.1046 10 12 9.10457 12 8C12 6.89543 11.1046 6 10 6C8.89543 6 8 6.89543 8 8C8 9.10457 8.89543 10 10 10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>管理设置</span>
+                </a>
+                <a href="{{ url_for('logout') }}" class="sidebar-link">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M7 17L2 12M2 12L7 7M2 12H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>退出登录</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- 主聊天区域 -->
+        <main class="chat-main">
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-screen">
+                    <div class="welcome-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <circle cx="32" cy="32" r="30" stroke="url(#gradient)" stroke-width="2"/>
+                            <path d="M32 16L20 22V32C20 38.6274 25.3726 44 32 44C38.6274 44 44 38.6274 44 32V22L32 16Z" fill="url(#gradient)"/>
+                            <defs>
+                                <linearGradient id="gradient" x1="0" y1="0" x2="64" y2="64">
+                                    <stop stop-color="#667eea"/>
+                                    <stop offset="1" stop-color="#764ba2"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <h1>欢迎使用 DeepSeek AI</h1>
+                    <p>我是您的AI助手，可以回答各种问题。请在下方输入您的问题开始对话。</p>
+                </div>
+            </div>
+
+            <div class="chat-input-area">
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="messageInput" 
+                            class="message-input" 
+                            placeholder="输入消息..." 
+                            rows="1"
+                            onkeydown="handleKeyDown(event)"
+                        ></textarea>
+                        <button id="sendButton" class="send-button" onclick="sendMessage()" title="发送 (Enter)">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="input-footer">
+                        <span class="token-info" id="tokenInfo"></span>
+                        <span class="input-hint">按 Enter 发送，Shift + Enter 换行</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const tokenInfo = document.getElementById('tokenInfo');
+
+        // 自动调整输入框高度
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+        });
+
+        // 处理回车键
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // 添加消息到聊天界面
+        function addMessage(content, isUser = true, usage = null) {
+            // 移除欢迎屏幕
+            const welcomeScreen = chatMessages.querySelector('.welcome-screen');
+            if (welcomeScreen) {
+                welcomeScreen.remove();
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            
+            // 处理换行和代码块
+            const formattedContent = content.replace(/\n/g, '<br>');
+            messageContent.innerHTML = formattedContent;
+            
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = 'message-wrapper';
+            messageWrapper.appendChild(messageContent);
+            
+            if (usage) {
+                const usageDiv = document.createElement('div');
+                usageDiv.className = 'message-usage';
+                usageDiv.textContent = `Tokens: ${usage.total_tokens} (Prompt: ${usage.prompt_tokens}, Completion: ${usage.completion_tokens})`;
+                messageWrapper.appendChild(usageDiv);
+            }
+            
+            messageDiv.appendChild(messageWrapper);
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        // 滚动到底部
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // 显示加载状态
+        function showLoading() {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'loadingMessage';
+            loadingDiv.className = 'message ai-message loading';
+            loadingDiv.innerHTML = `
+                <div class="message-wrapper">
+                    <div class="message-content">
+                        <div class="loading-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(loadingDiv);
+            scrollToBottom();
+        }
+
+        // 移除加载状态
+        function removeLoading() {
+            const loading = document.getElementById('loadingMessage');
+            if (loading) {
+                loading.remove();
+            }
+        }
+
+        // 发送消息
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            
+            if (!message) {
+                return;
+            }
+
+            // 禁用输入和按钮
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            sendButton.classList.add('disabled');
+
+            // 添加用户消息
+            addMessage(message, true);
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+
+            // 显示加载状态
+            showLoading();
+
+            // 更新token信息
+            tokenInfo.textContent = '正在思考...';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const result = await response.json();
+
+                // 移除加载状态
+                removeLoading();
+
+                if (result.success) {
+                    // 添加AI回复
+                    addMessage(result.message, false, result.usage);
+                    
+                    // 更新token信息
+                    if (result.usage) {
+                        tokenInfo.textContent = `本次: ${result.usage.total_tokens} tokens`;
+                    }
+                } else {
+                    addMessage('错误: ' + (result.error || '未知错误'), false);
+                    tokenInfo.textContent = '请求失败';
+                }
+            } catch (error) {
+                removeLoading();
+                addMessage('网络错误: ' + error.message, false);
+                tokenInfo.textContent = '网络错误';
+            } finally {
+                // 恢复输入和按钮
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                sendButton.classList.remove('disabled');
+                messageInput.focus();
+            }
+        }
+
+        // 清空聊天
+        function clearChat() {
+            if (confirm('确定要开始新对话吗？当前对话记录将被清空。')) {
+                chatMessages.innerHTML = `
+                    <div class="welcome-screen">
+                        <div class="welcome-icon">
+                            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                                <circle cx="32" cy="32" r="30" stroke="url(#gradient)" stroke-width="2"/>
+                                <path d="M32 16L20 22V32C20 38.6274 25.3726 44 32 44C38.6274 44 44 38.6274 44 32V22L32 16Z" fill="url(#gradient)"/>
+                                <defs>
+                                    <linearGradient id="gradient" x1="0" y1="0" x2="64" y2="64">
+                                        <stop stop-color="#667eea"/>
+                                        <stop offset="1" stop-color="#764ba2"/>
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                        </div>
+                        <h1>欢迎使用 DeepSeek AI</h1>
+                        <p>我是您的AI助手，可以回答各种问题。请在下方输入您的问题开始对话。</p>
+                    </div>
+                `;
+                tokenInfo.textContent = '';
+            }
+        }
+
+        // 页面加载完成后聚焦输入框
+        window.addEventListener('load', function() {
+            messageInput.focus();
+        });
+    </script>
+</body>
+</html>

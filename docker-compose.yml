@@ -18,8 +18,49 @@ services:
       # 挂载 SSL 证书目录
       - ./ssl:/etc/nginx/ssl:ro
     restart: unless-stopped
+    depends_on:
+      - flask-app
     networks:
       - nginx-network
+
+  flask-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.flask
+    container_name: flask-app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=guopengfei_learning
+      - MYSQL_PASSWORD=Gpf_learning
+      - MYSQL_DB=nginx_shop
+    depends_on:
+      - mysql
+    restart: unless-stopped
+    networks:
+      - nginx-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: nginx_shop
+      MYSQL_USER: guopengfei_learning
+      MYSQL_PASSWORD: Gpf_learning
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    networks:
+      - nginx-network
+
+volumes:
+  mysql_data:
 
 networks:
   nginx-network:

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SonarLintProjectSettings">
+    <option name="bindingEnabled" value="true" />
+    <option name="projectKey" value="ayena-spring_ayena-spring-ai_f3833260-5dba-4716-a4e9-64de00a44e2d" />
+    <option name="serverId" value="http://12.218.18.69:9005/" />
+  </component>
+</project>

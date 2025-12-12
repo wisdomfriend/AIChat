@@ -96,6 +96,49 @@
                         </div>
                         <button onclick="fetchServerTime()">获取服务器时间</button>
                     </div>
+                    <div class="demo-card">
+                        <h3>外部服务链接</h3>
+                        <p>通过美国服务器访问外部服务：</p>
+                        <div class="external-links">
+                            <a href="https://www.google.com" target="_blank" class="service-link google">
+                                <span class="link-icon">🔍</span> Google
+                            </a>
+                            <a href="https://www.youtube.com" target="_blank" class="service-link youtube">
+                                <span class="link-icon">▶️</span> YouTube
+                            </a>
+                            <a href="https://www.github.com" target="_blank" class="service-link github">
+                                <span class="link-icon">💻</span> GitHub
+                            </a>
+                        </div>
+                        <p class="note">注意：直接链接可能仍受网络限制</p>
+                    </div>
+                    <div class="demo-card">
+                        <h3>代理访问服务</h3>
+                        <p>通过nginx反向代理访问（需要服务器端配置）：</p>
+                        <div class="proxy-section">
+                            <div class="proxy-note">
+                                <strong>⚠️ 重要提醒：</strong><br>
+                                • 代理功能默认被注释，需要手动启用<br>
+                                • 可能违反目标网站的服务条款<br>
+                                • 可能被检测为异常流量而被封禁<br>
+                                • 建议仅用于学习和测试目的
+                            </div>
+                            <div class="proxy-links">
+                                <div class="proxy-link-item">
+                                    <span>Google代理：</span>
+                                    <code>https://your-domain.com/proxy/google/</code>
+                                </div>
+                                <div class="proxy-link-item">
+                                    <span>YouTube代理：</span>
+                                    <code>https://your-domain.com/proxy/youtube/</code>
+                                </div>
+                                <div class="proxy-link-item">
+                                    <span>GitHub代理：</span>
+                                    <code>https://your-domain.com/proxy/github/</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

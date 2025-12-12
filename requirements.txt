@@ -1,0 +1,8 @@
+Flask==3.0.0
+flask-cors==4.0.0
+requests==2.31.0
+PyYAML==6.0.1
+gunicorn==21.2.0
+SQLAlchemy==2.0.32
+PyMySQL==1.1.1
+cryptography>=42.0.0

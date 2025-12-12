@@ -28,25 +28,40 @@
 ```
 nginx-shop/
 ├── docker-compose.yml          # Docker Compose 配置文件
-├── Dockerfile                  # Nginx 镜像构建文件
-├── Dockerfile.flask            # Flask 应用镜像构建文件
+├── Dockerfile                  # Flask 应用镜像构建文件
 ├── requirements.txt            # Python 依赖包
-├── flask_app/                  # Flask 应用目录
-│   ├── app.py                 # Flask 主应用文件
-│   ├── templates/            # HTML 模板
-│   │   ├── login.html        # 登录页面
-│   │   ├── chat.html         # 聊天页面
-│   │   ├── dashboard.html    # 用户仪表板
-│   │   └── admin.html        # 管理后台
-│   └── static/               # 静态资源
-│       └── css/              # 样式文件
+├── flask_app/                  # Flask 应用目录（模块化架构）
+│   ├── __init__.py            # 应用工厂
+│   ├── app.py                 # 应用启动文件
+│   ├── config.py              # 配置管理
+│   ├── database.py            # 数据库连接管理
+│   ├── models.py              # 数据库模型定义
+│   ├── utils.py               # 辅助工具函数
+│   ├── routes/                # 路由模块（Blueprint）
+│   │   ├── __init__.py
+│   │   ├── auth.py            # 认证路由（登录/登出）
+│   │   ├── chat.py            # 聊天页面路由
+│   │   ├── dashboard.py       # 仪表板路由
+│   │   ├── admin.py           # 管理后台路由
+│   │   └── api.py             # API 路由
+│   ├── services/              # 业务逻辑服务层
+│   │   ├── __init__.py
+│   │   ├── auth_service.py    # 认证服务
+│   │   ├── chat_service.py    # 聊天服务
+│   │   └── stats_service.py   # 统计服务
+│   ├── templates/             # HTML 模板
+│   │   ├── login.html         # 登录页面
+│   │   ├── chat.html          # 聊天页面
+│   │   ├── dashboard.html     # 用户仪表板
+│   │   └── admin.html         # 管理后台
+│   └── static/                # 静态资源
+│       └── css/               # 样式文件
 ├── nginx/
 │   └── nginx.conf            # Nginx 配置文件
 ├── mysql/
 │   └── init.sql              # 数据库初始化脚本
 ├── ssl/                      # SSL 证书目录
 │   └── guopengfei.top/       # 域名证书文件
-├── html/                     # 静态 HTML 文件（可选）
 ├── docs/                     # 文档目录
 │   ├── 部署指南.md
 │   ├── SSL证书使用指南.md
@@ -55,6 +70,16 @@ nginx-shop/
     ├── install.sh
     └── configure-firewall.sh
 ```
+
+### 架构说明
+
+项目采用**模块化架构设计**，遵循 Flask 最佳实践：
+
+- **应用工厂模式**: 使用 `create_app()` 函数创建应用实例，便于测试和扩展
+- **Blueprint 路由模块化**: 按功能将路由拆分到不同模块（auth、chat、dashboard、admin、api）
+- **服务层分离**: 业务逻辑封装在 `services/` 目录，实现关注点分离
+- **配置管理**: 集中管理配置，支持开发/生产环境切换
+- **数据库抽象**: 统一的数据库连接和会话管理
 
 ## 功能特性
 
@@ -180,6 +205,15 @@ export MYSQL_DB=nginx_shop
 3. **启动 Flask 开发服务器**
 
 ```bash
+# 方式1: 直接运行（推荐）
+python -m flask_app.app
+
+# 方式2: 使用 Flask CLI
+export FLASK_APP=flask_app.app
+export FLASK_ENV=development
+flask run --host=0.0.0.0 --port=5000
+
+# 方式3: 进入目录运行
 cd flask_app
 python app.py
 ```
@@ -199,10 +233,28 @@ docker-compose up -d flask-app
 
 修改 `nginx/nginx.conf` 后：
 ```bash
+# Nginx 使用官方镜像，配置通过 volumes 挂载，直接重启即可生效
 docker-compose restart nginx
-# 或重新构建
-docker-compose up -d --build nginx
 ```
+
+### 代码结构说明
+
+项目采用模块化架构，主要模块说明：
+
+- **`config.py`**: 配置管理，支持开发/生产环境切换
+- **`models.py`**: 数据库模型定义（User, ApiKey, TokenUsage）
+- **`database.py`**: 数据库连接和会话管理
+- **`utils.py`**: 辅助函数（如 `get_current_user()`, `require_login` 装饰器）
+- **`routes/`**: 路由模块，使用 Blueprint 组织
+  - `auth.py`: 登录/登出
+  - `chat.py`: 聊天页面
+  - `dashboard.py`: 用户仪表板
+  - `admin.py`: 管理后台
+  - `api.py`: API 接口
+- **`services/`**: 业务逻辑服务层
+  - `auth_service.py`: 认证业务逻辑
+  - `chat_service.py`: 聊天业务逻辑（API 调用、Token 记录）
+  - `stats_service.py`: 统计业务逻辑
 
 ### 数据库操作
 
@@ -272,6 +324,8 @@ docker-compose logs -f
 ### Nginx 配置
 
 主要配置项：
+- **镜像**: nginx:alpine（官方镜像，无需构建）
+- **配置挂载**: `nginx/nginx.conf` 通过 volumes 挂载，修改后重启即可生效
 - **监听端口**: 80 (HTTP), 443 (HTTPS)
 - **SSL 协议**: TLSv1.2, TLSv1.3
 - **Gzip 压缩**: 已启用
@@ -280,10 +334,13 @@ docker-compose logs -f
 
 ### Flask 应用配置
 
+- **架构**: 模块化设计，应用工厂模式
 - **运行端口**: 5000 (容器内)
 - **WSGI 服务器**: Gunicorn (4 workers)
 - **数据库**: MySQL (通过环境变量配置)
 - **Session**: 基于 Flask Session
+- **路由**: Blueprint 模块化路由
+- **服务层**: 业务逻辑分离到 services 目录
 
 ### MySQL 配置
 
@@ -395,7 +452,28 @@ docker-compose logs -f
 
 ## 更新日志
 
-### 最新版本
+### v2.0 - 架构重构（最新）
+
+**重大改进**:
+- ✨ **模块化架构重构**: 采用应用工厂模式和 Blueprint 路由模块化
+- 📁 **代码组织优化**: 
+  - 路由按功能拆分到 `routes/` 目录
+  - 业务逻辑封装到 `services/` 目录
+  - 配置、模型、数据库管理独立模块
+- 🐳 **Docker 优化**: 
+  - 移除 Nginx Dockerfile，直接使用官方 nginx:alpine 镜像
+  - 配置通过 volumes 挂载，便于开发时修改
+- 🗑️ **清理冗余**: 删除不再需要的 `html/` 静态文件夹
+
+**技术改进**:
+- 应用工厂模式 (`create_app()`)
+- Blueprint 路由模块化
+- 服务层分离（Service Layer Pattern）
+- 统一的数据库会话管理
+- 配置集中管理，支持环境切换
+
+### v1.0 - 初始版本
+
 - 集成 Flask 后端框架
 - 添加 MySQL 数据库支持
 - 集成 DeepSeek AI 聊天功能
@@ -403,3 +481,28 @@ docker-compose logs -f
 - 添加 Token 使用统计
 - 配置 Nginx 反向代理
 - 支持 HTTPS/SSL
+
+## 许可证
+
+本项目采用 [MIT License](LICENSE) 许可证。
+
+### MIT License 说明
+
+MIT License 是一个非常宽松的开源许可证，允许他人自由使用、修改、分发你的代码，只需保留原始的版权声明和许可证文本。
+
+**允许的行为：**
+- ✅ 商业使用
+- ✅ 修改代码
+- ✅ 分发代码
+- ✅ 私人使用
+- ✅ 使用专利
+
+**唯一要求：**
+- 📝 保留原始的版权声明和 MIT License 文本
+
+**不要求：**
+- ❌ 公开修改后的源代码
+- ❌ 使用相同的许可证
+- ❌ 提供文档
+
+详细许可证内容请查看 [LICENSE](LICENSE) 文件。

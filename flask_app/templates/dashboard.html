@@ -16,7 +16,7 @@
                     {% if user.last_login %}
                         <span>最后登录: {{ user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else '首次登录' }}</span>
                     {% endif %}
-                    <a href="{{ url_for('logout') }}" class="btn btn-secondary">登出</a>
+                    <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">登出</a>
                 </div>
             </div>
         </header>
@@ -36,7 +36,7 @@
                 <h2>🚀 DeepSeek AI 控制面板</h2>
                 <p>欢迎，{{ user.username }}！这是GuoPengFei的学习网站。</p>
                 <div class="action-buttons">
-                    <a href="{{ url_for('admin') }}" class="btn btn-primary">管理设置</a>
+                    <a href="{{ url_for('admin.admin') }}" class="btn btn-primary">管理设置</a>
                 </div>
             </div>
 

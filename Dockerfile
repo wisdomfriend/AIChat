@@ -1,14 +1,23 @@
-FROM nginx:alpine
+FROM python:3.9-slim
 
-# 复制自定义 nginx 配置
-COPY nginx/nginx.conf /etc/nginx/nginx.conf
+WORKDIR /app
 
-# 复制静态文件到 nginx 默认目录
-COPY html/ /usr/share/nginx/html/
+# 安装系统依赖
+RUN apt-get update && apt-get install -y \
+    gcc \
+    default-libmysqlclient-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
-# 暴露端口
-EXPOSE 80
+# 复制requirements.txt并安装Python依赖
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# 启动 nginx
-CMD ["nginx", "-g", "daemon off;"]
+# 复制应用代码（保持包结构）
+COPY flask_app/ /app/flask_app/
+
+EXPOSE 5000
+
+# 使用gunicorn启动应用
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "flask_app.app:app"]
 

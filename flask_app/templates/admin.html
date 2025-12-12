@@ -13,8 +13,8 @@
                 <h1>⚙️ 系统管理</h1>
                 <div class="user-info">
                     <span>用户: {{ user.username }}</span>
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">返回首页</a>
-                    <a href="{{ url_for('logout') }}" class="btn btn-secondary">登出</a>
+                    <a href="{{ url_for('dashboard.dashboard') }}" class="btn btn-secondary">返回首页</a>
+                    <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">登出</a>
                 </div>
             </div>
         </header>

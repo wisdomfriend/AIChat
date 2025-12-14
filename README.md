@@ -414,24 +414,4 @@ docker-compose exec -T mysql mysql -u guopengfei_learning -pGpf_learning nginx_s
 ## 许可证
 
 本项目采用 [MIT License](LICENSE) 许可证。
-
-### MIT License 说明
-
-MIT License 是一个非常宽松的开源许可证，允许他人自由使用、修改、分发你的代码，只需保留原始的版权声明和许可证文本。
-
-**允许的行为：**
-- ✅ 商业使用
-- ✅ 修改代码
-- ✅ 分发代码
-- ✅ 私人使用
-- ✅ 使用专利
-
-**唯一要求：**
-- 📝 保留原始的版权声明和 MIT License 文本
-
-**不要求：**
-- ❌ 公开修改后的源代码
-- ❌ 使用相同的许可证
-- ❌ 提供文档
-
 详细许可证内容请查看 [LICENSE](LICENSE) 文件。

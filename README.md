@@ -64,12 +64,6 @@ nginx-shop/
 │   └── nginx.conf            # Nginx 配置文件
 ├── mysql/
 │   └── init.sql              # 数据库初始化脚本
-├── ssl/                      # SSL 证书目录
-│   └── guopengfei.top/       # 域名证书文件
-├── docs/                     # 文档目录
-│   ├── 部署指南.md
-│   ├── SSL证书使用指南.md
-│   └── ...
 └── scripts/                   # 部署脚本
     ├── install.sh
     └── configure-firewall.sh

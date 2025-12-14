@@ -1,8 +1,23 @@
+# Flask Web框架 - 用于构建Web应用和API
 Flask==3.0.0
+
+# Flask CORS扩展 - 处理跨域资源共享（CORS）请求
 flask-cors==4.0.0
+
+# HTTP请求库 - 用于发送HTTP请求和调用外部API
 requests==2.31.0
-PyYAML==6.0.1
+
+# WSGI HTTP服务器 - 用于生产环境部署Flask应用
 gunicorn==21.2.0
+
+# SQLAlchemy ORM - 用于数据库操作和ORM映射
 SQLAlchemy==2.0.32
+
+# MySQL数据库驱动 - SQLAlchemy的MySQL连接器
 PyMySQL==1.1.1
+
+# 环境变量管理 - 从.env文件加载环境变量配置
+python-dotenv==1.0.0
+
+# PyMySQL调用的加密库
 cryptography>=42.0.0

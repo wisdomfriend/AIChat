@@ -30,9 +30,10 @@ nginx-shop/
 ├── docker-compose.yml          # Docker Compose 配置文件
 ├── Dockerfile                  # Flask 应用镜像构建文件
 ├── requirements.txt            # Python 依赖包
+├── run.py                      # Flask 应用启动脚本（开发环境）
+├── wsgi.py                     # WSGI 入口文件（生产环境）
 ├── flask_app/                  # Flask 应用目录（模块化架构）
 │   ├── __init__.py            # 应用工厂
-│   ├── app.py                 # 应用启动文件
 │   ├── config.py              # 配置管理
 │   ├── database.py            # 数据库连接管理
 │   ├── models.py              # 数据库模型定义
@@ -130,6 +131,88 @@ nginx-shop/
 - Docker Compose (版本 1.29+)
 - Python 3.9+ (本地开发需要)
 
+### 国内网络优化配置
+
+如果你在中国大陆，建议配置国内镜像源以加速下载：
+
+#### 1. 配置 Docker 镜像加速器
+
+创建或编辑 `/etc/docker/daemon.json`：
+
+```bash
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json <<-'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.mirrors.ustc.edu.cn",
+    "https://hub-mirror.c.163.com",
+    "https://mirror.baidubce.com"
+  ]
+}
+EOF
+
+# 重启 Docker 服务使配置生效
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
+# 验证配置
+docker info | grep -A 10 "Registry Mirrors"
+```
+
+**常用国内镜像源：**
+- 中科大：`https://docker.mirrors.ustc.edu.cn`
+- 网易：`https://hub-mirror.c.163.com`
+- 百度云：`https://mirror.baidubce.com`
+- 阿里云：需要登录阿里云控制台获取专属加速地址
+
+#### 2. 配置 pip 镜像源（本地开发）
+
+**方法一：使用项目提供的配置文件（推荐）**
+
+```bash
+# Linux/macOS: 复制到用户目录
+mkdir -p ~/.pip
+cp docs/pip.conf.example ~/.pip/pip.conf
+
+# Windows: 复制到 %APPDATA%\pip\pip.ini
+# 或手动创建文件：C:\Users\你的用户名\AppData\Roaming\pip\pip.ini
+```
+
+**方法二：手动创建配置文件**
+
+```bash
+# 创建配置目录
+mkdir -p ~/.pip
+
+# 创建配置文件
+cat > ~/.pip/pip.conf << 'EOF'
+[global]
+index-url = https://pypi.tuna.tsinghua.edu.cn/simple
+trusted-host = pypi.tuna.tsinghua.edu.cn
+EOF
+```
+
+**方法三：临时使用（单次安装）**
+
+```bash
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn
+```
+
+**常用 pip 镜像源：**
+- 清华：`https://pypi.tuna.tsinghua.edu.cn/simple`
+- 阿里云：`https://mirrors.aliyun.com/pypi/simple/`
+- 中科大：`https://pypi.mirrors.ustc.edu.cn/simple/`
+- 豆瓣：`https://pypi.douban.com/simple/`
+
+#### 3. Dockerfile 已优化
+
+项目的 `Dockerfile` 已配置使用国内 pip 源（清华源），构建 Docker 镜像时会自动加速，无需额外配置。
+
+如果某个镜像源不可用，可以修改 `Dockerfile` 中的镜像地址：
+- 清华：`https://pypi.tuna.tsinghua.edu.cn/simple`
+- 阿里云：`https://mirrors.aliyun.com/pypi/simple/`
+- 中科大：`https://pypi.mirrors.ustc.edu.cn/simple/`
+
 ### 环境配置
 
 1. **配置 SSL 证书**
@@ -154,6 +237,9 @@ nginx-shop/
 ### 启动服务
 
 ```bash
+# 进入项目目录
+cd nginx-shop
+
 # 构建并启动所有容器
 docker-compose up -d
 
@@ -172,17 +258,82 @@ docker-compose down
 docker-compose down -v
 ```
 
+#### 访问服务
+
+启动容器后，可以通过以下方式访问：
+
+- **HTTP**: `http://localhost` 或 `http://127.0.0.1`
+- **HTTPS**: `https://localhost` 或 `https://127.0.0.1`（需要配置 SSL 证书）
+- **Flask 应用直接访问**: `http://localhost:5000`
+- **MySQL**: `localhost:3306`
+
+**注意**：
+- 如果端口被占用，可以修改 `docker-compose.yml` 中的端口映射
+- 首次启动 MySQL 容器可能需要一些时间初始化数据库
+
 ## 开发说明
 
 ### 本地开发
 
-1. **安装 Python 依赖**
+#### 前置要求
+
+- Python 3.9+ （推荐 Python 3.12+）
+- pip（Python 包管理器）
+
+#### 设置 Python 虚拟环境
+
+**推荐使用 venv（Python 内置虚拟环境）**
+
+1. **创建虚拟环境**
 
 ```bash
+# Windows PowerShell
+python -m venv venv
+
+# Linux/macOS
+python3 -m venv venv
+```
+
+2. **激活虚拟环境**
+
+```bash
+# Windows PowerShell
+.\venv\Scripts\Activate.ps1
+
+# 如果遇到执行策略错误，运行以下命令：
+# Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# Windows CMD
+venv\Scripts\activate.bat
+
+# Linux/macOS
+source venv/bin/activate
+```
+
+激活成功后，命令行提示符前会显示 `(venv)`。
+
+3. **在 PyCharm 中使用 venv**
+
+- 打开项目后，PyCharm 会自动检测 `venv` 文件夹
+- 如果没有自动检测，手动配置：
+  - `File` → `Settings`（或 `Ctrl+Alt+S`）
+  - `Project: nginx-shop` → `Python Interpreter`
+  - 点击齿轮图标 → `Add...`
+  - 选择 `Existing environment`
+  - 解释器路径：`项目路径\venv\Scripts\python.exe`（Windows）
+  - 点击 `OK`
+- 在 PyCharm 底部状态栏确认显示 `Python 3.x (venv)`
+
+4. **安装 Python 依赖**
+
+```bash
+# 确保已激活虚拟环境（命令行前显示 (venv)）
 pip install -r requirements.txt
 ```
 
-2. **配置环境变量**
+#### 配置环境变量
+
+1. **配置环境变量**
 
 创建 `.env` 文件或设置环境变量：
 ```bash
@@ -192,21 +343,35 @@ export MYSQL_PASSWORD=Gpf_learning
 export MYSQL_DB=nginx_shop
 ```
 
-3. **启动 Flask 开发服务器**
+5. **启动 Flask 开发服务器**
+
+**重要：确保已激活虚拟环境（命令行前显示 `(venv)`）**
 
 ```bash
-# 方式1: 直接运行（推荐）
-python -m flask_app.app
+# 方式1: 使用 run.py（推荐）
+python run.py
 
 # 方式2: 使用 Flask CLI
-export FLASK_APP=flask_app.app
-export FLASK_ENV=development
+# Windows PowerShell
+$env:FLASK_APP="run.py"
+$env:FLASK_ENV="development"
 flask run --host=0.0.0.0 --port=5000
 
-# 方式3: 进入目录运行
-cd flask_app
-python app.py
+# Linux/macOS
+export FLASK_APP=run.py
+export FLASK_ENV=development
+flask run --host=0.0.0.0 --port=5000
 ```
+
+**说明：**
+- `run.py`: 开发环境启动脚本，用于本地开发和调试
+- `wsgi.py`: 生产环境 WSGI 入口文件，供 Gunicorn 等 WSGI 服务器使用
+
+**常见问题：**
+
+- 如果遇到 `ModuleNotFoundError`，检查是否已激活虚拟环境
+- 在 PyCharm 中运行，确保已配置使用 venv 解释器
+- 在终端中运行，确保先执行激活命令
 
 ### 修改代码后重新部署
 

@@ -183,3 +183,5 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# .idea环境文件
+.idea

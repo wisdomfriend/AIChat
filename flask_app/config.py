@@ -1,16 +1,36 @@
 """应用配置文件"""
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Config:
     """基础配置"""
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'guopengfei_learning_secret_key_2024')
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'guopengfei')
     
     # 数据库配置
     MYSQL_HOST = os.environ.get('MYSQL_HOST', 'mysql')
-    MYSQL_USER = os.environ.get('MYSQL_USER', 'guopengfei_learning')
-    MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'Gpf_learning')
-    MYSQL_DB = os.environ.get('MYSQL_DB', 'nginx_shop')
+    MYSQL_USER = os.environ.get('MYSQL_USER', 'guopengfei')
+    MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'guopengfei')
+    MYSQL_DB = os.environ.get('MYSQL_DB', 'flask_app')
+    
+    def __init__(self):
+        """初始化配置，验证必要的环境变量"""
+        self._validate_config()
+    
+    def _validate_config(self):
+        """验证配置是否完整"""
+        # 在生产环境中，如果没有设置环境变量，给出警告
+        if os.environ.get('FLASK_ENV') == 'production':
+            if not os.environ.get('MYSQL_HOST'):
+                logger.warning("警告: 生产环境中未设置 MYSQL_HOST 环境变量，使用默认值 'mysql'")
+            if not os.environ.get('MYSQL_USER'):
+                logger.warning("警告: 生产环境中未设置 MYSQL_USER 环境变量，使用默认值")
+            if not os.environ.get('MYSQL_PASSWORD'):
+                logger.warning("警告: 生产环境中未设置 MYSQL_PASSWORD 环境变量，使用默认值")
+            if not os.environ.get('MYSQL_DB'):
+                logger.warning("警告: 生产环境中未设置 MYSQL_DB 环境变量，使用默认值")
     
     @property
     def DATABASE_URL(self):

@@ -184,4 +184,7 @@ Thumbs.db
 .env.*.local
 
 # .idea环境文件
-.idea
+.idea/
+
+# 文档文件夹（本地保留，不上传到 GitHub）
+docs/

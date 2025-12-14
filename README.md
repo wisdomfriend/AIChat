@@ -165,81 +165,9 @@ docker info | grep -A 10 "Registry Mirrors"
 - 百度云：`https://mirror.baidubce.com`
 - 阿里云：需要登录阿里云控制台获取专属加速地址
 
-#### 2. 配置 pip 镜像源（本地开发）
-
-**方法一：使用项目提供的配置文件（推荐）**
-
-```bash
-# Linux/macOS: 复制到用户目录
-mkdir -p ~/.pip
-cp docs/pip.conf.example ~/.pip/pip.conf
-
-# Windows: 复制到 %APPDATA%\pip\pip.ini
-# 或手动创建文件：C:\Users\你的用户名\AppData\Roaming\pip\pip.ini
-```
-
-**方法二：手动创建配置文件**
-
-```bash
-# 创建配置目录
-mkdir -p ~/.pip
-
-# 创建配置文件
-cat > ~/.pip/pip.conf << 'EOF'
-[global]
-index-url = https://pypi.tuna.tsinghua.edu.cn/simple
-trusted-host = pypi.tuna.tsinghua.edu.cn
-EOF
-```
-
-**方法三：临时使用（单次安装）**
-
-```bash
-pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn
-```
-
-**常用 pip 镜像源：**
-- 清华：`https://pypi.tuna.tsinghua.edu.cn/simple`
-- 阿里云：`https://mirrors.aliyun.com/pypi/simple/`
-- 中科大：`https://pypi.mirrors.ustc.edu.cn/simple/`
-- 豆瓣：`https://pypi.douban.com/simple/`
-
-#### 3. Dockerfile 已优化
-
-项目的 `Dockerfile` 已配置使用国内 pip 源（清华源），构建 Docker 镜像时会自动加速，无需额外配置。
-
-如果某个镜像源不可用，可以修改 `Dockerfile` 中的镜像地址：
-- 清华：`https://pypi.tuna.tsinghua.edu.cn/simple`
-- 阿里云：`https://mirrors.aliyun.com/pypi/simple/`
-- 中科大：`https://pypi.mirrors.ustc.edu.cn/simple/`
-
-### 环境配置
-
-1. **配置 SSL 证书**
-
-   将 SSL 证书文件放置在 `ssl/guopengfei.top/` 目录下：
-   - `fullchain.crt`: 完整证书链
-   - `private.key`: 私钥文件
-
-   如果使用其他域名，需要修改 `nginx/nginx.conf` 中的域名配置。
-
-2. **配置数据库**
-
-   默认数据库配置（可在 `docker-compose.yml` 中修改）：
-   - 数据库名: `nginx_shop`
-   - 用户名: `guopengfei_learning`
-   - 密码: `Gpf_learning`
-
-3. **配置 API Key**
-
-   首次启动后，通过管理后台配置 DeepSeek API Key，或直接在数据库中插入。
-
 ### 启动服务
 
 ```bash
-# 进入项目目录
-cd nginx-shop
-
 # 构建并启动所有容器
 docker-compose up -d
 
@@ -262,14 +190,9 @@ docker-compose down -v
 
 启动容器后，可以通过以下方式访问：
 
-- **HTTP**: `http://localhost` 或 `http://127.0.0.1`
-- **HTTPS**: `https://localhost` 或 `https://127.0.0.1`（需要配置 SSL 证书）
 - **Flask 应用直接访问**: `http://localhost:5000`
 - **MySQL**: `localhost:3306`
 
-**注意**：
-- 如果端口被占用，可以修改 `docker-compose.yml` 中的端口映射
-- 首次启动 MySQL 容器可能需要一些时间初始化数据库
 
 ## 开发说明
 
@@ -289,9 +212,6 @@ docker-compose down -v
 ```bash
 # Windows PowerShell
 python -m venv venv
-
-# Linux/macOS
-python3 -m venv venv
 ```
 
 2. **激活虚拟环境**
@@ -305,67 +225,16 @@ python3 -m venv venv
 
 # Windows CMD
 venv\Scripts\activate.bat
-
-# Linux/macOS
-source venv/bin/activate
 ```
 
 激活成功后，命令行提示符前会显示 `(venv)`。
-
-3. **在 PyCharm 中使用 venv**
-
-- 打开项目后，PyCharm 会自动检测 `venv` 文件夹
-- 如果没有自动检测，手动配置：
-  - `File` → `Settings`（或 `Ctrl+Alt+S`）
-  - `Project: nginx-shop` → `Python Interpreter`
-  - 点击齿轮图标 → `Add...`
-  - 选择 `Existing environment`
-  - 解释器路径：`项目路径\venv\Scripts\python.exe`（Windows）
-  - 点击 `OK`
-- 在 PyCharm 底部状态栏确认显示 `Python 3.x (venv)`
 
 4. **安装 Python 依赖**
 
 ```bash
 # 确保已激活虚拟环境（命令行前显示 (venv)）
-pip install -r requirements.txt
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn
 ```
-
-#### 配置环境变量
-
-1. **配置环境变量**
-
-创建 `.env` 文件或设置环境变量：
-```bash
-export MYSQL_HOST=localhost
-export MYSQL_USER=guopengfei_learning
-export MYSQL_PASSWORD=Gpf_learning
-export MYSQL_DB=nginx_shop
-```
-
-5. **启动 Flask 开发服务器**
-
-**重要：确保已激活虚拟环境（命令行前显示 `(venv)`）**
-
-```bash
-# 方式1: 使用 run.py（推荐）
-python run.py
-
-# 方式2: 使用 Flask CLI
-# Windows PowerShell
-$env:FLASK_APP="run.py"
-$env:FLASK_ENV="development"
-flask run --host=0.0.0.0 --port=5000
-
-# Linux/macOS
-export FLASK_APP=run.py
-export FLASK_ENV=development
-flask run --host=0.0.0.0 --port=5000
-```
-
-**说明：**
-- `run.py`: 开发环境启动脚本，用于本地开发和调试
-- `wsgi.py`: 生产环境 WSGI 入口文件，供 Gunicorn 等 WSGI 服务器使用
 
 **常见问题：**
 
@@ -424,55 +293,6 @@ docker-compose exec mysql mysqldump -u guopengfei_learning -pGpf_learning nginx_
 docker-compose exec -T mysql mysql -u guopengfei_learning -pGpf_learning nginx_shop < backup.sql
 ```
 
-## 部署到生产环境
-
-### 服务器要求
-
-- Linux 服务器（推荐 Ubuntu 20.04+）
-- Docker 和 Docker Compose 已安装
-- 域名已解析到服务器 IP
-- SSL 证书已准备
-
-### 部署步骤
-
-1. **上传项目文件到服务器**
-
-```bash
-scp -r nginx-shop user@server:/path/to/
-```
-
-2. **配置 SSL 证书**
-
-将证书文件上传到 `ssl/guopengfei.top/` 目录。
-
-3. **修改配置（如需要）**
-
-- 修改 `docker-compose.yml` 中的端口映射
-- 修改 `nginx/nginx.conf` 中的域名
-- 修改数据库密码等敏感信息
-
-4. **启动服务**
-
-```bash
-cd /path/to/nginx-shop
-docker-compose up -d
-```
-
-5. **配置防火墙**
-
-```bash
-# 开放 80 和 443 端口
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-```
-
-6. **查看日志**
-
-```bash
-docker-compose logs -f
-```
-
-详细部署指南请参考 `docs/部署指南.md`。
 
 ## 配置说明
 
@@ -503,44 +323,6 @@ docker-compose logs -f
 - **数据持久化**: Docker Volume
 - **初始化脚本**: `mysql/init.sql`
 
-## API 端点
-
-### 用户相关
-- `GET /` - 首页（自动重定向）
-- `GET /login` - 登录页面
-- `POST /login` - 处理登录
-- `GET /logout` - 登出
-- `GET /chat` - 聊天页面
-- `GET /dashboard` - 用户仪表板
-- `GET /admin` - 管理后台
-
-### API 接口
-- `POST /api/chat` - AI 聊天接口
-- `POST /admin/api_key` - 更新 API Key
-
-## 安全注意事项
-
-1. **生产环境配置**
-   - 修改默认密码
-   - 使用强密码策略
-   - 定期更新依赖包
-   - 配置防火墙规则
-
-2. **SSL 证书**
-   - 使用有效的 SSL 证书
-   - 定期更新证书
-   - 配置证书自动续期（如使用 Let's Encrypt）
-
-3. **API Key 管理**
-   - 不要在代码中硬编码 API Key
-   - 使用环境变量或密钥管理服务
-   - 定期轮换 API Key
-
-4. **数据库安全**
-   - 使用强密码
-   - 限制数据库访问权限
-   - 定期备份数据
-
 ## 故障排查
 
 ### 常见问题
@@ -570,14 +352,6 @@ docker-compose logs -f
    - 检查 API Key 是否配置
    - 查看 Flask 应用日志
    - 确认网络连接正常
-
-## 文档
-
-项目文档位于 `docs/` 目录：
-- `部署指南.md` - 详细部署说明
-- `SSL证书使用指南.md` - SSL 证书配置指南
-- `SSL技术原理详解.md` - SSL 技术原理
-- `域名配置指南.md` - 域名配置说明
 
 ## TODO / 开发计划
 

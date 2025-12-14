@@ -1,6 +1,9 @@
 # Nginx + Flask AI 聊天应用
 
-这是一个基于 Docker 和 Docker Compose 部署的全栈 Web 应用，集成了 AI 聊天功能。项目使用 Nginx 作为反向代理和 Web 服务器，Flask 作为后端框架，MySQL 作为数据库，并集成了 DeepSeek API 提供 AI 聊天服务。本项目部署地址:https://guopengfei.top 
+这是一个基于 Docker 和 Docker Compose 部署的全栈 Web 应用，集成了 AI 聊天功能。
+项目使用 Nginx 作为反向代理和 Web 服务器，Flask 作为后端框架，MySQL 作为数据库，并集成了 DeepSeek API 提供 AI 聊天服务。
+本项目部署地址:https://guopengfei.top 
+作者邮箱: wisdomfriend@126.com 有问题给我发邮件吧.
 
 ## 技术栈
 

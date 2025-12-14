@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS proxy_logs (
 
 -- 插入默认用户
 INSERT IGNORE INTO users (username, password) VALUES
-('guopengfei_learning', 'Gpf_learning');
+('test', 'test');
 
 -- 创建API密钥配置表
 CREATE TABLE IF NOT EXISTS api_keys (
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS token_usage (
 
 -- 插入默认DeepSeek API Key
 INSERT IGNORE INTO api_keys (api_key, provider, is_active) VALUES
-('sk-65b28c89462246eab967c91b52185878', 'deepseek', TRUE);
+('sk-65b28c89462246eab967c91b52185***', 'deepseek', TRUE);
 
 -- 创建索引以提高查询性能
 CREATE INDEX idx_users_username ON users(username);

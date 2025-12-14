@@ -7,22 +7,30 @@ logger = logging.getLogger(__name__)
 
 class Config:
     """基础配置"""
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'guopengfei')
-    
-    # 数据库配置
-    MYSQL_HOST = os.environ.get('MYSQL_HOST', 'mysql')
-    MYSQL_USER = os.environ.get('MYSQL_USER', 'guopengfei')
-    MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'guopengfei')
-    MYSQL_DB = os.environ.get('MYSQL_DB', 'flask_app')
+    # DeepSeek API配置（固定值，不需要从环境变量读取）
+    DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
     
     def __init__(self):
-        """初始化配置，验证必要的环境变量"""
+        """初始化配置，从环境变量读取配置值"""
+        # 从环境变量读取配置（此时.env文件应该已经加载）
+        self.SECRET_KEY = os.environ.get('SECRET_KEY', 'guopengfei')
+        
+        # 数据库配置
+        self.MYSQL_HOST = os.environ.get('MYSQL_HOST', 'mysql')
+        self.MYSQL_USER = os.environ.get('MYSQL_USER', 'guopengfei')
+        self.MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'guopengfei')
+        self.MYSQL_DB = os.environ.get('MYSQL_DB', 'flask_app')
+        
+        # Flask配置
+        self.FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
+        
+        # 验证配置
         self._validate_config()
     
     def _validate_config(self):
         """验证配置是否完整"""
         # 在生产环境中，如果没有设置环境变量，给出警告
-        if os.environ.get('FLASK_ENV') == 'production':
+        if self.FLASK_ENV == 'production':
             if not os.environ.get('MYSQL_HOST'):
                 logger.warning("警告: 生产环境中未设置 MYSQL_HOST 环境变量，使用默认值 'mysql'")
             if not os.environ.get('MYSQL_USER'):
@@ -36,28 +44,40 @@ class Config:
     def DATABASE_URL(self):
         """构建数据库连接URL"""
         return f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}/{self.MYSQL_DB}"
-    
-    # DeepSeek API配置
-    DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
-    
-    # Flask配置
-    FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
 
 
 class DevelopmentConfig(Config):
     """开发环境配置"""
-    DEBUG = True
+    def __init__(self):
+        super().__init__()
+        self.DEBUG = True
 
 
 class ProductionConfig(Config):
     """生产环境配置"""
-    DEBUG = False
+    def __init__(self):
+        super().__init__()
+        self.DEBUG = False
 
 
-# 配置字典
-config = {
-    'development': DevelopmentConfig,
-    'production': ProductionConfig,
-    'default': DevelopmentConfig
-}
+def create_config(config_name='default'):
+    """
+    配置工厂函数
+    
+    在创建配置实例时读取环境变量，确保.env文件已经加载
+    
+    Args:
+        config_name: 配置名称 ('development', 'production', 'default')
+    
+    Returns:
+        配置类实例
+    """
+    config_map = {
+        'development': DevelopmentConfig,
+        'production': ProductionConfig,
+        'default': DevelopmentConfig
+    }
+    
+    config_class = config_map.get(config_name, DevelopmentConfig)
+    return config_class()
 

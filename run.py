@@ -28,5 +28,6 @@ app = create_app(config_name)
 if __name__ == '__main__':
     # 开发环境默认启用debug模式
     debug_mode = app.config.get('DEBUG', True)
-    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
+    # 禁用reloader以避免Windows上路径包含空格时的错误（特别是在PyCharm调试时）
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode, use_reloader=False)
 

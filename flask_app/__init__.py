@@ -2,7 +2,7 @@
 import logging
 from flask import Flask
 from flask_cors import CORS
-from .config import config
+from .config import create_config
 from .database import init_db
 from .routes import register_routes
 
@@ -13,8 +13,9 @@ def create_app(config_name='default'):
     """创建Flask应用实例"""
     app = Flask(__name__)
     
-    # 加载配置
-    app.config.from_object(config[config_name])
+    # 使用配置工厂函数创建配置实例（此时环境变量已经加载）
+    config_instance = create_config(config_name)
+    app.config.from_object(config_instance)
     
     # 启用CORS
     CORS(app)

@@ -21,6 +21,26 @@ class Config:
         self.MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'guopengfei')
         self.MYSQL_DB = os.environ.get('MYSQL_DB', 'flask_app')
         
+        # Redis配置
+        self.REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')
+        self.REDIS_PORT = int(os.environ.get('REDIS_PORT', '6379'))
+        self.REDIS_DB = int(os.environ.get('REDIS_DB', '0'))
+        # 处理REDIS_PASSWORD：如果为空字符串、"None"或"null"，则设为None
+        redis_password = os.environ.get('REDIS_PASSWORD', None)
+        if redis_password in (None, '', 'None', 'null', 'NULL'):
+            self.REDIS_PASSWORD = None
+        else:
+            self.REDIS_PASSWORD = redis_password
+        
+        # Session配置 - 使用Redis存储Session
+        self.SESSION_TYPE = 'redis'
+        self.SESSION_REDIS = None  # 将在应用初始化时设置
+        # Session过期时间：7天（单位：秒）
+        self.PERMANENT_SESSION_LIFETIME = int(os.environ.get('SESSION_LIFETIME', '604800'))  # 默认7天
+        self.SESSION_PERMANENT = True  # 启用永久Session
+        self.SESSION_USE_SIGNER = True  # 对Session ID进行签名，增强安全性
+        self.SESSION_KEY_PREFIX = 'session:'  # Redis中Session的键前缀
+        
         # Flask配置
         self.FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
         

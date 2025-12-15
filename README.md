@@ -1,7 +1,7 @@
 # Nginx + Flask AI 聊天应用
 
-这是一个基于 Docker 和 Docker Compose 部署的全栈 Web 应用，集成了 AI 聊天功能。
-项目使用 Nginx 作为反向代理和 Web 服务器，Flask 作为后端框架，MySQL 作为数据库，并集成了 DeepSeek API 提供 AI 聊天服务。
+这是一个基于 AIChat Web 应用，集成了 AI 聊天功能。
+项目使用Flask 作为后端框架，MySQL 作为数据库，Redis 作为缓存和 Session 存储，并集成了 DeepSeek API 提供 AI 聊天服务。
 本项目部署地址:https://guopengfei.top 
 作者邮箱: wisdomfriend@126.com 有问题给我发邮件吧.
 
@@ -10,7 +10,6 @@
 ### 后端
 - **Flask 3.0.0**: Python Web 框架
 - **SQLAlchemy 2.0.32**: ORM 数据库操作
-- **PyMySQL 1.1.1**: MySQL 数据库驱动
 - **Gunicorn 21.2.0**: WSGI HTTP 服务器
 
 ### 前端
@@ -20,8 +19,8 @@
 ### 基础设施
 - **Nginx**: 反向代理和 Web 服务器
 - **MySQL 8.0**: 关系型数据库
+- **Redis 7**: 缓存和 Session 存储
 - **Docker & Docker Compose**: 容器化部署
-- **SSL/HTTPS**: 支持 HTTPS 加密访问
 
 ### 第三方服务
 - **DeepSeek API**: AI 聊天服务提供商
@@ -40,6 +39,7 @@ nginx-shop/
 │   ├── config.py              # 配置管理
 │   ├── database.py            # 数据库连接管理
 │   ├── models.py              # 数据库模型定义
+│   ├── session_interface.py   # 自定义 Redis Session 接口
 │   ├── utils.py               # 辅助工具函数
 │   ├── routes/                # 路由模块（Blueprint）
 │   │   ├── __init__.py
@@ -78,14 +78,16 @@ nginx-shop/
 - **服务层分离**: 业务逻辑封装在 `services/` 目录，实现关注点分离
 - **配置管理**: 集中管理配置，支持开发/生产环境切换
 - **数据库抽象**: 统一的数据库连接和会话管理
+- **Redis Session 存储**: 使用 Redis 存储 Session，支持多实例部署和 Session 共享
 
 ## 功能特性
 
 ### 核心功能
 1. **用户认证系统**
    - 用户登录/登出
-   - Session 管理
+   - Redis Session 管理（支持多实例部署）
    - 用户状态跟踪
+   - Session 自动过期（默认 7 天）
 
 2. **AI 聊天功能**
    - 集成 DeepSeek API
@@ -115,8 +117,15 @@ nginx-shop/
    - Token 使用记录表（token_usage）
    - 代理访问日志表（proxy_logs）
 
-3. **容器化部署**
-   - 多容器架构（Nginx + Flask + MySQL）
+3. **Redis 缓存和 Session 存储**
+   - Redis 7 容器化部署
+   - Session 数据存储在 Redis
+   - 支持 AOF 持久化
+   - 支持多实例部署时的 Session 共享
+   - 自定义 Session 接口修复兼容性问题
+
+4. **容器化部署**
+   - 多容器架构（Nginx + Flask + MySQL + Redis）
    - 容器间网络通信
    - 数据持久化
 
@@ -175,6 +184,7 @@ docker-compose logs -f
 docker-compose logs -f flask-app
 docker-compose logs -f nginx
 docker-compose logs -f mysql
+docker-compose logs -f redis
 
 # 停止服务
 docker-compose down
@@ -189,6 +199,7 @@ docker-compose down -v
 
 - **Flask 应用直接访问**: `http://localhost:5000`
 - **MySQL**: `localhost:3306`
+- **Redis**: `localhost:6379`
 
 
 ## 开发说明
@@ -265,6 +276,7 @@ docker-compose restart nginx
 - **`config.py`**: 配置管理，支持开发/生产环境切换
 - **`models.py`**: 数据库模型定义（User, ApiKey, TokenUsage）
 - **`database.py`**: 数据库连接和会话管理
+- **`session_interface.py`**: 自定义 Redis Session 接口，修复 session_id bytes 类型问题
 - **`utils.py`**: 辅助函数（如 `get_current_user()`, `require_login` 装饰器）
 - **`routes/`**: 路由模块，使用 Blueprint 组织
   - `auth.py`: 登录/登出
@@ -310,7 +322,10 @@ docker-compose exec -T mysql mysql -u guopengfei_learning -pGpf_learning nginx_s
 - **运行端口**: 5000 (容器内)
 - **WSGI 服务器**: Gunicorn (4 workers)
 - **数据库**: MySQL (通过环境变量配置)
-- **Session**: 基于 Flask Session
+- **Session**: Redis 存储（使用自定义 `FixedRedisSessionInterface`）
+  - Session 过期时间：7 天（可配置）
+  - Session ID 签名：启用（增强安全性）
+  - 自动回退：Redis 连接失败时回退到文件系统 Session
 - **路由**: Blueprint 模块化路由
 - **服务层**: 业务逻辑分离到 services 目录
 
@@ -319,6 +334,17 @@ docker-compose exec -T mysql mysql -u guopengfei_learning -pGpf_learning nginx_s
 - **版本**: MySQL 8.0
 - **数据持久化**: Docker Volume
 - **初始化脚本**: `mysql/init.sql`
+
+### Redis 配置
+
+- **版本**: Redis 7 (Alpine)
+- **数据持久化**: Docker Volume + AOF (Append Only File)
+- **端口**: 6379
+- **密码**: 通过环境变量配置（默认：Gpf_learning）
+- **用途**: 
+  - Session 存储
+  - 支持多实例部署时的 Session 共享
+  - 为后续限流功能预留（TODO）
 
 ## 故障排查
 
@@ -350,21 +376,33 @@ docker-compose exec -T mysql mysql -u guopengfei_learning -pGpf_learning nginx_s
    - 查看 Flask 应用日志
    - 确认网络连接正常
 
+5. **Redis 连接失败**
+   ```bash
+   # 检查 Redis 容器状态
+   docker-compose ps redis
+   # 查看 Redis 日志
+   docker-compose logs redis
+   # 测试 Redis 连接
+   docker-compose exec redis redis-cli -a Gpf_learning ping
+   ```
+   - 如果 Redis 连接失败，应用会自动回退到文件系统 Session
+   - 检查环境变量 `REDIS_HOST`、`REDIS_PORT`、`REDIS_PASSWORD` 是否正确配置
+
 ## TODO / 开发计划
 
 以下是计划中的功能改进和优化：
 
-1. **集成 Redis 缓存**
-   - 添加 Redis 服务到 Docker Compose
-   - 将 Flask Session 从默认存储迁移到 Redis
-   - 提升 Session 管理的性能和可扩展性
-   - 支持多实例部署时的 Session 共享
+1. ✅ **集成 Redis 缓存**（已完成）
+   - ✅ 添加 Redis 服务到 Docker Compose
+   - ✅ 将 Flask Session 从默认存储迁移到 Redis
+   - ✅ 提升 Session 管理的性能和可扩展性
+   - ✅ 支持多实例部署时的 Session 共享
+   - ✅ 自定义 Session 接口修复兼容性问题
 
-2. **实现流式聊天响应**
-   - 修改 `/api/chat` 接口支持流式输出
-   - 前端实现 Server-Sent Events (SSE) 或 WebSocket 接收流式数据
-   - 优化用户体验，实现打字机效果
-   - 减少用户等待时间，提升交互体验
+2. ✅ **实现流式聊天响应**
+   - ✅ 修改 `/api/chat` 接口支持流式输出
+   - ✅ 前端实现 Server-Sent Events (SSE) 或 WebSocket 接收流式数据
+   - ✅ 减少用户等待时间，提升交互体验
 
 3. **API 访问频率限制**
    - 使用 Redis 实现聊天 API 访问频率限制
@@ -378,7 +416,25 @@ docker-compose exec -T mysql mysql -u guopengfei_learning -pGpf_learning nginx_s
 
 ## 更新日志
 
-### v2.0 - 架构重构（最新）
+### v2.1 - Redis Session 集成（最新）
+
+**重大改进**:
+- ✨ **Redis Session 存储**: 集成 Redis 7 容器，将 Session 从文件系统迁移到 Redis
+- 🔧 **自定义 Session 接口**: 新增 `session_interface.py`，修复 session_id bytes 类型兼容性问题
+- 🚀 **性能提升**: 
+  - Session 读写性能显著提升
+  - 支持多实例部署时的 Session 共享
+  - 支持 AOF 持久化，数据更安全
+- 🛡️ **容错机制**: Redis 连接失败时自动回退到文件系统 Session，确保服务可用性
+
+**技术改进**:
+- Redis 7 (Alpine) 容器化部署
+- 自定义 `FixedRedisSessionInterface` 类
+- Session ID 签名验证，增强安全性
+- 配置化的 Session 过期时间（默认 7 天）
+- 完善的错误处理和日志记录
+
+### v2.0 - 架构重构
 
 **重大改进**:
 - ✨ **模块化架构重构**: 采用应用工厂模式和 Blueprint 路由模块化

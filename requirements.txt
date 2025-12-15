@@ -21,3 +21,9 @@ python-dotenv==1.0.0
 
 # PyMySQL调用的加密库
 cryptography>=42.0.0
+
+# Redis客户端 - 用于连接Redis服务器
+redis==5.0.1
+
+# Flask Session扩展 - 支持将Session存储到Redis
+Flask-Session==0.5.0

@@ -33,6 +33,8 @@ def login():
             # 使用session存储用户信息
             session['user_id'] = result['user']['id']
             session['username'] = result['user']['username']
+            # 设置Session为永久，使用配置的过期时间（默认7天）
+            session.permanent = True
             
             flash('登录成功！', 'success')
             return redirect(url_for('chat.chat'))

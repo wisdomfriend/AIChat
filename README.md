@@ -1,9 +1,35 @@
-# Nginx + Flask AI 聊天应用
+# AIChat - Flask AI 聊天应用 | Docker 全栈部署方案
 
-这是一个基于 AIChat Web 应用，集成了 AI 聊天功能。
-项目使用Flask 作为后端框架，MySQL 作为数据库，Redis 作为缓存和 Session 存储，并集成了 DeepSeek API 提供 AI 聊天服务。
-本项目部署地址:https://guopengfei.top 
-作者邮箱: wisdomfriend@126.com 有问题给我发邮件吧.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-3.0.0-green.svg)](https://flask.palletsprojects.com/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+
+> 🚀 **一个基于 Docker 和 Docker Compose 部署的全栈 Web 应用，集成了 AI 聊天功能**
+
+## 📖 项目简介
+
+**AIChat** 是一个开源的 AI 聊天 Web 应用，采用现代化的全栈架构设计。项目使用 **Flask** 作为后端框架，**MySQL** 作为数据库，**Redis** 作为缓存和 Session 存储，并集成了 **DeepSeek API** 提供 AI 聊天服务。通过 **Docker Compose** 实现一键部署，支持 **Nginx** 反向代理和 **HTTPS/SSL** 加密。
+
+### ✨ 核心特性
+
+- 🤖 **AI 聊天功能**：集成 DeepSeek API，支持实时对话交互
+- 🔐 **用户认证系统**：完整的登录/注册功能，Redis Session 管理
+- 📊 **使用统计**：Token 使用量统计和记录查询
+- 🛡️ **管理后台**：API Key 管理和全局统计
+- 🐳 **容器化部署**：Docker Compose 一键部署
+- 🔒 **HTTPS 支持**：Nginx 反向代理，SSL 证书配置
+- ⚡ **高性能**：Redis 缓存，Gunicorn 多进程
+- 📱 **响应式设计**：适配不同屏幕尺寸
+
+### 🌐 在线演示
+
+- **部署地址**: https://guopengfei.top
+- **作者邮箱**: wisdomfriend@126.com（有问题欢迎发邮件）
+
+### 🏷️ 技术标签
+
+`Flask` `Python` `Docker` `Docker Compose` `Nginx` `MySQL` `Redis` `AI Chat` `DeepSeek API` `Web Application` `Full Stack` `Backend` `Frontend` `HTTPS` `SSL` `Session Management` `RESTful API` `Microservices` `Containerization`
 
 ## 技术栈
 

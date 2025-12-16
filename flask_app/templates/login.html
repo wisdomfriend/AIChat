@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 - DeepSeek AI</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
 </head>
 <body>
@@ -87,10 +88,14 @@
                         </svg>
                     </button>
                 </form>
+
+                <div class="register-link">
+                    <p>还没有账户？<a href="{{ url_for('auth.register') }}">立即注册</a></p>
+                </div>
             </div>
 
             <div class="login-footer">
-                <p>© 2024 GuoPengFei 学习网站 | 技术学习项目</p>
+                <p>© 2024 GuoPengFei AIChat</p>
             </div>
         </div>
     </div>

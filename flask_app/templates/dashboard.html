@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>仪表板 - GuoPengFei学习网站</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 </head>
 <body>
@@ -36,7 +37,9 @@
                 <h2>🚀 DeepSeek AI 控制面板</h2>
                 <p>欢迎，{{ user.username }}！这是GuoPengFei的学习网站。</p>
                 <div class="action-buttons">
+                    {% if user.is_admin %}
                     <a href="{{ url_for('admin.admin') }}" class="btn btn-primary">管理设置</a>
+                    {% endif %}
                 </div>
             </div>
 

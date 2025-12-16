@@ -1,6 +1,6 @@
 """API路由"""
 import json
-from flask import Blueprint, Response, request, stream_with_context
+from flask import Blueprint, Response, request, stream_with_context, jsonify
 from ..utils import get_current_user
 from ..services import ChatService
 
@@ -10,7 +10,7 @@ api_bp = Blueprint('api', __name__)
 
 @api_bp.route('/chat', methods=['POST'])
 def api_chat():
-    """流式聊天API (SSE)"""
+    """流式聊天API (SSE) - 支持会话"""
     user = get_current_user()
     if not user:
         return Response(
@@ -22,6 +22,7 @@ def api_chat():
     try:
         data = request.get_json()
         message = data.get('message', '').strip()
+        session_id = data.get('session_id')  # 会话ID，如果为None则创建新会话
         
         if not message:
             return Response(
@@ -35,7 +36,11 @@ def api_chat():
         def generate():
             """生成SSE流"""
             try:
-                for chunk in chat_service.process_chat_stream(user['id'], message):
+                for chunk in chat_service.process_chat_stream_with_session(
+                    user['id'], 
+                    session_id, 
+                    message
+                ):
                     yield chunk
             except Exception as e:
                 print(f"Stream generation error: {e}")
@@ -58,4 +63,89 @@ def api_chat():
             mimetype='text/event-stream',
             status=500
         )
+
+
+@api_bp.route('/sessions', methods=['GET'])
+def get_sessions():
+    """获取用户的会话列表"""
+    user = get_current_user()
+    if not user:
+        return jsonify({'error': '未登录'}), 401
+    
+    try:
+        chat_service = ChatService()
+        sessions = chat_service.get_sessions(user['id'])
+        return jsonify({'sessions': sessions})
+    except Exception as e:
+        print(f"Get sessions error: {e}")
+        return jsonify({'error': '获取会话列表失败'}), 500
+
+
+@api_bp.route('/sessions', methods=['POST'])
+def create_session():
+    """创建新会话"""
+    user = get_current_user()
+    if not user:
+        return jsonify({'error': '未登录'}), 401
+    
+    try:
+        data = request.get_json() or {}
+        title = data.get('title')
+        
+        chat_service = ChatService()
+        session_id = chat_service.create_session(user['id'], title)
+        
+        if session_id:
+            return jsonify({'session_id': session_id})
+        else:
+            return jsonify({'error': '创建会话失败'}), 500
+    except Exception as e:
+        print(f"Create session error: {e}")
+        return jsonify({'error': '创建会话失败'}), 500
+
+
+@api_bp.route('/sessions/<int:session_id>/messages', methods=['GET'])
+def get_session_messages(session_id):
+    """获取会话的所有消息"""
+    user = get_current_user()
+    if not user:
+        return jsonify({'error': '未登录'}), 401
+    
+    try:
+        chat_service = ChatService()
+        messages = chat_service.get_session_messages(session_id, user['id'])
+        
+        if messages is None:
+            return jsonify({'error': '会话不存在或无权限'}), 404
+        
+        return jsonify({'messages': messages})
+    except Exception as e:
+        print(f"Get session messages error: {e}")
+        return jsonify({'error': '获取消息失败'}), 500
+
+
+@api_bp.route('/sessions/<int:session_id>/title', methods=['PUT'])
+def update_session_title(session_id):
+    """更新会话主题"""
+    user = get_current_user()
+    if not user:
+        return jsonify({'error': '未登录'}), 401
+    
+    try:
+        data = request.get_json()
+        title = data.get('title', '').strip()
+        
+        if not title:
+            return jsonify({'error': '主题不能为空'}), 400
+        
+        chat_service = ChatService()
+        success = chat_service.update_session_title(session_id, user['id'], title)
+        
+        if success:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': '更新失败'}), 404
+    except Exception as e:
+        print(f"Update session title error: {e}")
+        return jsonify({'error': '更新失败'}), 500
 

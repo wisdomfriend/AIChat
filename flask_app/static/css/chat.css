@@ -4,12 +4,21 @@
     box-sizing: border-box;
 }
 
+html {
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
     background: #0a0a0a;
     color: #ffffff;
     height: 100vh;
+    width: 100%;
     overflow: hidden;
+    margin: 0;
+    padding: 0;
 }
 
 .chat-app {
@@ -58,6 +67,25 @@ body {
 .sidebar-content {
     flex: 1;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .user-info {
@@ -96,6 +124,89 @@ body {
 .user-status {
     font-size: 12px;
     color: rgba(255, 255, 255, 0.5);
+}
+
+/* 会话列表 */
+.sessions-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin-top: 16px;
+    overflow: hidden;
+}
+
+.sessions-header {
+    margin-bottom: 12px;
+}
+
+.sessions-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.sessions-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    /* 隐藏滚动条 */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+.sessions-list::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+.sessions-loading,
+.sessions-empty,
+.sessions-error {
+    padding: 16px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 13px;
+}
+
+.session-item {
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.session-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.session-item.active {
+    background: rgba(102, 126, 234, 0.15);
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+.session-title {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.session-item.active .session-title {
+    color: #ffffff;
+}
+
+.session-time {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
 }
 
 .sidebar-footer {
@@ -143,6 +254,7 @@ body {
 .chat-messages {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 40px 20px;
     scroll-behavior: smooth;
 }
@@ -172,7 +284,7 @@ body {
     height: 100%;
     text-align: center;
     padding: 40px;
-    max-width: 600px;
+    max-width: 900px;
     margin: 0 auto;
 }
 
@@ -307,16 +419,22 @@ body {
     background: rgba(20, 20, 20, 0.8);
     backdrop-filter: blur(20px);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+    box-sizing: border-box;
+    width: 100%;
+    overflow-x: hidden;
 }
 
 .input-container {
     max-width: 900px;
+    width: 100%;
     margin: 0 auto;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 .input-wrapper {
     display: flex;
-    align-items: flex-end;
+    align-items: stretch;
     gap: 12px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -340,8 +458,14 @@ body {
     outline: none;
     max-height: 200px;
     overflow-y: auto;
-    line-height: 1.6;
+    line-height: 1.5;
     font-family: inherit;
+    align-self: stretch;
+    min-height: 24px;
+    height: auto;
+    padding: 6px 0;
+    box-sizing: border-box;
+    vertical-align: top;
 }
 
 .message-input::placeholder {

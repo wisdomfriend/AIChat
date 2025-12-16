@@ -44,6 +44,31 @@ def login():
     return render_template('login.html')
 
 
+@auth_bp.route('/register', methods=['GET', 'POST'])
+def register():
+    """注册路由"""
+    # 如果已登录，直接跳转
+    if get_current_user():
+        return redirect(url_for('chat.chat'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        password_confirm = request.form.get('password_confirm', '')
+        invite_code = request.form.get('invite_code', '').strip()
+        
+        auth_service = AuthService()
+        result = auth_service.register(username, password, password_confirm, invite_code)
+        
+        if result['success']:
+            flash('注册成功！请登录', 'success')
+            return redirect(url_for('auth.login'))
+        else:
+            flash(result['message'], 'error')
+    
+    return render_template('register.html')
+
+
 @auth_bp.route('/logout')
 def logout():
     """登出路由"""

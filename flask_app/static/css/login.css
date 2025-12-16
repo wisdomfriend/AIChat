@@ -291,6 +291,38 @@ body {
     color: rgba(255, 255, 255, 0.4);
 }
 
+.form-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.4;
+}
+
+.register-link {
+    margin-top: 24px;
+    text-align: center;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.register-link p {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.register-link a {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.register-link a:hover {
+    color: #764ba2;
+    text-decoration: underline;
+}
+
 @media (max-width: 480px) {
     .login-container {
         padding: 32px 24px;

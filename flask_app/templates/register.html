@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - DeepSeek AI</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-background">
+            <div class="gradient-orb orb-1"></div>
+            <div class="gradient-orb orb-2"></div>
+            <div class="gradient-orb orb-3"></div>
+        </div>
+        
+        <div class="login-container">
+            <div class="login-header">
+                <div class="logo">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16 2L4 8V16C4 22.6274 9.37258 28 16 28C22.6274 28 28 22.6274 28 16V8L16 2Z" fill="url(#gradient)"/>
+                        <defs>
+                            <linearGradient id="gradient" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#667eea"/>
+                                <stop offset="1" stop-color="#764ba2"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <h1>DeepSeek AI</h1>
+                </div>
+                <p class="subtitle">创建新账户，开始您的AI之旅</p>
+            </div>
+
+            <div class="login-form-wrapper">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST" class="login-form" id="registerForm">
+                    <div class="form-group">
+                        <label for="username">用户名</label>
+                        <div class="input-wrapper">
+                            <svg class="input-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 10C12.7614 10 15 7.76142 15 5C15 2.23858 12.7614 0 10 0C7.23858 0 5 2.23858 5 5C5 7.76142 7.23858 10 10 10Z" fill="currentColor"/>
+                                <path d="M10 12C5.58172 12 2 13.7909 2 16V20H18V16C18 13.7909 14.4183 12 10 12Z" fill="currentColor"/>
+                            </svg>
+                            <input 
+                                type="text" 
+                                id="username" 
+                                name="username" 
+                                class="form-input" 
+                                placeholder="请输入用户名（3-20个字符，字母、数字、下划线）" 
+                                required
+                                minlength="3"
+                                maxlength="20"
+                                pattern="[a-zA-Z0-9_]+"
+                                autocomplete="username"
+                            >
+                        </div>
+                        <small class="form-hint">用户名只能包含字母、数字和下划线，长度3-20个字符</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">密码</label>
+                        <div class="input-wrapper">
+                            <svg class="input-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 2C7.79086 2 6 3.79086 6 6V8H4C2.89543 8 2 8.89543 2 10V16C2 17.1046 2.89543 18 4 18H16C17.1046 18 18 17.1046 18 16V10C18 8.89543 17.1046 8 16 8H14V6C14 3.79086 12.2091 2 10 2ZM10 4C11.1046 4 12 4.89543 12 6V8H8V6C8 4.89543 8.89543 4 10 4Z" fill="currentColor"/>
+                            </svg>
+                            <input 
+                                type="password" 
+                                id="password" 
+                                name="password" 
+                                class="form-input" 
+                                placeholder="请输入密码（至少6个字符）" 
+                                required
+                                minlength="6"
+                                maxlength="128"
+                                autocomplete="new-password"
+                            >
+                        </div>
+                        <small class="form-hint">密码至少需要6个字符</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password_confirm">确认密码</label>
+                        <div class="input-wrapper">
+                            <svg class="input-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 2C7.79086 2 6 3.79086 6 6V8H4C2.89543 8 2 8.89543 2 10V16C2 17.1046 2.89543 18 4 18H16C17.1046 18 18 17.1046 18 16V10C18 8.89543 17.1046 8 16 8H14V6C14 3.79086 12.2091 2 10 2ZM10 4C11.1046 4 12 4.89543 12 6V8H8V6C8 4.89543 8.89543 4 10 4Z" fill="currentColor"/>
+                            </svg>
+                            <input 
+                                type="password" 
+                                id="password_confirm" 
+                                name="password_confirm" 
+                                class="form-input" 
+                                placeholder="请再次输入密码" 
+                                required
+                                minlength="6"
+                                maxlength="128"
+                                autocomplete="new-password"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="invite_code">邀请码</label>
+                        <div class="input-wrapper">
+                            <svg class="input-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 2C5.58172 2 2 4.79086 2 8C2 11.2091 5.58172 14 10 14C10.3387 14 10.6717 13.9797 11 13.9403C11.8594 14.6274 12.8826 15 14 15C16.7614 15 19 12.7614 19 10C19 7.23858 16.7614 5 14 5C13.5858 5 13.1849 5.05865 12.803 5.17071C12.0527 3.45508 10.1885 2 10 2ZM10 4C13.3137 4 16 5.68629 16 8C16 10.3137 13.3137 12 10 12C6.68629 12 4 10.3137 4 8C4 5.68629 6.68629 4 10 4Z" fill="currentColor"/>
+                            </svg>
+                            <input 
+                                type="text" 
+                                id="invite_code" 
+                                name="invite_code" 
+                                class="form-input" 
+                                placeholder="请输入邀请码（4位数字）" 
+                                required
+                                minlength="4"
+                                maxlength="4"
+                                pattern="[0-9]{4}"
+                                autocomplete="off"
+                            >
+                        </div>
+                        <small class="form-hint">请输入正确的邀请码才能完成注册</small>
+                    </div>
+
+                    <button type="submit" class="login-button" id="registerButton">
+                        <span class="button-text">注册</span>
+                        <svg class="button-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </form>
+
+                <div class="register-link">
+                    <p>已有账户？<a href="{{ url_for('auth.login') }}">立即登录</a></p>
+                </div>
+            </div>
+
+            <div class="login-footer">
+                <p>© 2024 GuoPengFei 学习网站 | 技术学习项目</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 自动聚焦到用户名输入框
+        document.getElementById('username').focus();
+
+        // 表单提交动画
+        const form = document.getElementById('registerForm');
+        const button = document.getElementById('registerButton');
+        
+        form.addEventListener('submit', function(e) {
+            // 客户端验证密码一致性
+            const password = document.getElementById('password').value;
+            const passwordConfirm = document.getElementById('password_confirm').value;
+            
+            if (password !== passwordConfirm) {
+                e.preventDefault();
+                alert('两次输入的密码不一致！');
+                return false;
+            }
+            
+            // 验证邀请码格式（4位数字）
+            const inviteCode = document.getElementById('invite_code').value;
+            if (!/^\d{4}$/.test(inviteCode)) {
+                e.preventDefault();
+                alert('邀请码必须是4位数字！');
+                return false;
+            }
+            
+            button.classList.add('loading');
+            button.disabled = true;
+        });
+
+        // 实时验证密码一致性
+        const passwordInput = document.getElementById('password');
+        const passwordConfirmInput = document.getElementById('password_confirm');
+        
+        function validatePasswordMatch() {
+            if (passwordConfirmInput.value && passwordInput.value !== passwordConfirmInput.value) {
+                passwordConfirmInput.setCustomValidity('两次输入的密码不一致');
+            } else {
+                passwordConfirmInput.setCustomValidity('');
+            }
+        }
+        
+        passwordInput.addEventListener('input', validatePasswordMatch);
+        passwordConfirmInput.addEventListener('input', validatePasswordMatch);
+    </script>
+</body>
+</html>
+

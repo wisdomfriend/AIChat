@@ -1,6 +1,6 @@
 """管理页面路由"""
 from flask import Blueprint, render_template, redirect, url_for, flash, jsonify, request
-from ..utils import get_current_user, require_login
+from ..utils import get_current_user, require_login, require_admin
 from ..services import StatsService
 from ..database import get_session
 from ..models import ApiKey
@@ -10,7 +10,7 @@ admin_bp = Blueprint('admin', __name__)
 
 
 @admin_bp.route('/admin')
-@require_login
+@require_admin
 def admin():
     """管理页面"""
     user = get_current_user()
@@ -31,12 +31,14 @@ def admin():
 
 
 @admin_bp.route('/admin/api_key', methods=['POST'])
-@require_login
+@require_admin
 def update_api_key():
     """更新API key"""
     user = get_current_user()
     if not user:
         return jsonify({'success': False, 'message': '未登录'}), 401
+    if not user.get('is_admin', False):
+        return jsonify({'success': False, 'message': '权限不足'}), 403
     
     try:
         data = request.get_json()

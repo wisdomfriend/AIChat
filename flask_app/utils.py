@@ -18,7 +18,8 @@ def get_current_user():
             return {
                 'id': user.id,
                 'username': user.username,
-                'last_login': user.last_login
+                'last_login': user.last_login,
+                'is_admin': user.is_admin if hasattr(user, 'is_admin') else False
             }
     except Exception as e:
         print(f"Get user error: {e}")
@@ -35,6 +36,23 @@ def require_login(f):
     def decorated_function(*args, **kwargs):
         if not get_current_user():
             return redirect(url_for('auth.login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def require_admin(f):
+    """装饰器：要求用户是管理员"""
+    from functools import wraps
+    from flask import redirect, url_for, flash
+    
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            return redirect(url_for('auth.login'))
+        if not user.get('is_admin', False):
+            flash('您没有权限访问此页面', 'error')
+            return redirect(url_for('dashboard.dashboard'))
         return f(*args, **kwargs)
     return decorated_function
 

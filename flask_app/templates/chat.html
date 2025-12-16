@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DeepSeek AI 聊天</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
 </head>
 <body>
@@ -27,9 +28,20 @@
                         <div class="user-status">在线</div>
                     </div>
                 </div>
+                
+                <!-- 会话列表 -->
+                <div class="sessions-section">
+                    <div class="sessions-header">
+                        <h3>聊天记录</h3>
+                    </div>
+                    <div class="sessions-list" id="sessionsList">
+                        <div class="sessions-loading">加载中...</div>
+                    </div>
+                </div>
             </div>
 
             <div class="sidebar-footer">
+                {% if user.is_admin %}
                 <a href="{{ url_for('admin.admin') }}" class="sidebar-link">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                         <path d="M10 2L2 7V9C2 13.9706 5.58172 18 10 18C14.4183 18 18 13.9706 18 9V7L10 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -37,6 +49,7 @@
                     </svg>
                     <span>管理设置</span>
                 </a>
+                {% endif %}
                 <a href="{{ url_for('auth.logout') }}" class="sidebar-link">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                         <path d="M7 17L2 12M2 12L7 7M2 12H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -97,6 +110,10 @@
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
         const tokenInfo = document.getElementById('tokenInfo');
+        const sessionsList = document.getElementById('sessionsList');
+        
+        // 当前会话ID
+        let currentSessionId = null;
 
         // 自动调整输入框高度
         messageInput.addEventListener('input', function() {
@@ -228,7 +245,10 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ message: message })
+                    body: JSON.stringify({ 
+                        message: message,
+                        session_id: currentSessionId
+                    })
                 });
 
                 if (!response.ok) {
@@ -264,7 +284,16 @@
                             try {
                                 const data = JSON.parse(dataStr);
                                 
-                                if (data.type === 'content') {
+                                if (data.type === 'session_id') {
+                                    // 收到新会话ID
+                                    currentSessionId = data.session_id;
+                                    updateSessionsSelection();
+                                    // 重新加载会话列表
+                                    loadSessions();
+                                } else if (data.type === 'session_title') {
+                                    // 收到会话主题更新
+                                    loadSessions();
+                                } else if (data.type === 'content') {
                                     // 累积内容
                                     aiMessageContent += data.content;
                                     
@@ -334,34 +363,156 @@
             }
         }
 
-        // 清空聊天
+        // 清空聊天，创建新会话
         function clearChat() {
-            if (confirm('确定要开始新对话吗？当前对话记录将被清空。')) {
-                chatMessages.innerHTML = `
-                    <div class="welcome-screen">
-                        <div class="welcome-icon">
-                            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                                <circle cx="32" cy="32" r="30" stroke="url(#gradient)" stroke-width="2"/>
-                                <path d="M32 16L20 22V32C20 38.6274 25.3726 44 32 44C38.6274 44 44 38.6274 44 32V22L32 16Z" fill="url(#gradient)"/>
-                                <defs>
-                                    <linearGradient id="gradient" x1="0" y1="0" x2="64" y2="64">
-                                        <stop stop-color="#667eea"/>
-                                        <stop offset="1" stop-color="#764ba2"/>
-                                    </linearGradient>
-                                </defs>
-                            </svg>
-                        </div>
-                        <h1>欢迎使用 DeepSeek AI</h1>
-                        <p>我是您的AI助手，可以回答各种问题。请在下方输入您的问题开始对话。</p>
+            currentSessionId = null;
+            chatMessages.innerHTML = `
+                <div class="welcome-screen">
+                    <div class="welcome-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <circle cx="32" cy="32" r="30" stroke="url(#gradient)" stroke-width="2"/>
+                            <path d="M32 16L20 22V32C20 38.6274 25.3726 44 32 44C38.6274 44 44 38.6274 44 32V22L32 16Z" fill="url(#gradient)"/>
+                            <defs>
+                                <linearGradient id="gradient" x1="0" y1="0" x2="64" y2="64">
+                                    <stop stop-color="#667eea"/>
+                                    <stop offset="1" stop-color="#764ba2"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
                     </div>
-                `;
-                tokenInfo.textContent = '';
+                    <h1>欢迎使用 DeepSeek AI</h1>
+                    <p>我是您的AI助手，可以回答各种问题。请在下方输入您的问题开始对话。</p>
+                </div>
+            `;
+            tokenInfo.textContent = '';
+            // 更新会话列表选中状态
+            updateSessionsSelection();
+        }
+        
+        // 加载会话列表
+        async function loadSessions() {
+            try {
+                const response = await fetch('/api/sessions');
+                if (!response.ok) {
+                    throw new Error('获取会话列表失败');
+                }
+                const data = await response.json();
+                renderSessions(data.sessions || []);
+            } catch (error) {
+                console.error('Load sessions error:', error);
+                sessionsList.innerHTML = '<div class="sessions-error">加载失败</div>';
             }
         }
+        
+        // 渲染会话列表
+        function renderSessions(sessions) {
+            if (sessions.length === 0) {
+                sessionsList.innerHTML = '<div class="sessions-empty">暂无聊天记录</div>';
+                return;
+            }
+            
+            sessionsList.innerHTML = sessions.map(session => `
+                <div class="session-item ${session.id === currentSessionId ? 'active' : ''}" 
+                     onclick="loadSession(${session.id})" 
+                     data-session-id="${session.id}">
+                    <div class="session-title">${escapeHtml(session.title)}</div>
+                    <div class="session-time">${formatTime(session.updated_at)}</div>
+                </div>
+            `).join('');
+        }
+        
+        // 加载会话消息
+        async function loadSession(sessionId) {
+            try {
+                currentSessionId = sessionId;
+                updateSessionsSelection();
+                
+                const response = await fetch(`/api/sessions/${sessionId}/messages`);
+                if (!response.ok) {
+                    throw new Error('加载消息失败');
+                }
+                const data = await response.json();
+                const messages = data.messages || [];
+                
+                // 清空当前消息
+                chatMessages.innerHTML = '';
+                
+                // 渲染历史消息
+                messages.forEach(msg => {
+                    addMessage(msg.content, msg.role === 'user');
+                });
+                
+                // 如果没有消息，显示欢迎界面
+                if (messages.length === 0) {
+                    chatMessages.innerHTML = `
+                        <div class="welcome-screen">
+                            <div class="welcome-icon">
+                                <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                                    <circle cx="32" cy="32" r="30" stroke="url(#gradient)" stroke-width="2"/>
+                                    <path d="M32 16L20 22V32C20 38.6274 25.3726 44 32 44C38.6274 44 44 38.6274 44 32V22L32 16Z" fill="url(#gradient)"/>
+                                    <defs>
+                                        <linearGradient id="gradient" x1="0" y1="0" x2="64" y2="64">
+                                            <stop stop-color="#667eea"/>
+                                            <stop offset="1" stop-color="#764ba2"/>
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                            </div>
+                            <h1>欢迎使用 DeepSeek AI</h1>
+                            <p>我是您的AI助手，可以回答各种问题。请在下方输入您的问题开始对话。</p>
+                        </div>
+                    `;
+                }
+                
+                scrollToBottom();
+            } catch (error) {
+                console.error('Load session error:', error);
+                alert('加载会话失败: ' + error.message);
+            }
+        }
+        
+        // 更新会话列表选中状态
+        function updateSessionsSelection() {
+            const sessionItems = sessionsList.querySelectorAll('.session-item');
+            sessionItems.forEach(item => {
+                const itemSessionId = parseInt(item.dataset.sessionId);
+                if (itemSessionId === currentSessionId) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+        }
+        
+        // 格式化时间
+        function formatTime(timeString) {
+            if (!timeString) return '';
+            const date = new Date(timeString);
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (minutes < 1) return '刚刚';
+            if (minutes < 60) return `${minutes}分钟前`;
+            if (hours < 24) return `${hours}小时前`;
+            if (days < 7) return `${days}天前`;
+            
+            return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+        }
+        
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
-        // 页面加载完成后聚焦输入框
+        // 页面加载完成后聚焦输入框并加载会话列表
         window.addEventListener('load', function() {
             messageInput.focus();
+            loadSessions();
         });
     </script>
 </body>

@@ -148,4 +148,3 @@ def update_session_title(session_id):
     except Exception as e:
         print(f"Update session title error: {e}")
         return jsonify({'error': '更新失败'}), 500
-

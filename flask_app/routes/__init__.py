@@ -13,4 +13,3 @@ def register_routes(app):
     app.register_blueprint(dashboard.dashboard_bp)
     app.register_blueprint(admin.admin_bp)
     app.register_blueprint(api.api_bp, url_prefix='/api')
-

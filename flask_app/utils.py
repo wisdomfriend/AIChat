@@ -1,5 +1,6 @@
 """辅助工具函数"""
-from flask import session
+from functools import wraps
+from flask import session, redirect, url_for, flash
 from .database import get_session
 from .models import User
 
@@ -29,12 +30,10 @@ def get_current_user():
 
 def require_login(f):
     """装饰器：要求用户登录"""
-    from functools import wraps
-    from flask import redirect, url_for
-    
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not get_current_user():
+            flash('请先登录后再访问', 'warning')
             return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -42,17 +41,15 @@ def require_login(f):
 
 def require_admin(f):
     """装饰器：要求用户是管理员"""
-    from functools import wraps
-    from flask import redirect, url_for, flash
-    
     @wraps(f)
     def decorated_function(*args, **kwargs):
         user = get_current_user()
         if not user:
+            flash('请先登录后再访问', 'warning')
             return redirect(url_for('auth.login'))
         if not user.get('is_admin', False):
             flash('您没有权限访问此页面', 'error')
-            return redirect(url_for('dashboard.dashboard'))
+            return redirect(url_for('chat.chat'))
         return f(*args, **kwargs)
     return decorated_function
 

@@ -1,6 +1,6 @@
 """仪表板路由"""
 from flask import Blueprint, render_template, redirect, url_for
-from ..utils import get_current_user, require_login
+from ..utils import get_current_user, require_login, require_admin
 from ..services import StatsService
 
 # 创建蓝图
@@ -8,7 +8,7 @@ dashboard_bp = Blueprint('dashboard', __name__)
 
 
 @dashboard_bp.route('/dashboard')
-@require_login
+@require_admin
 def dashboard():
     """仪表板页面"""
     user = get_current_user()

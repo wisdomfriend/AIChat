@@ -10,6 +10,16 @@ class Config:
     # DeepSeek API配置（固定值，不需要从环境变量读取）
     DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
     
+    # 文件上传配置
+    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+    MAX_TEXT_LENGTH = 350000  # 最大提取文本长度（字符数）
+    ALLOWED_EXTENSIONS = {
+        '.txt', '.md', '.py', '.json', '.js', '.ts', '.html', '.css',
+        '.xml', '.yaml', '.yml', '.ini', '.conf', '.cfg', '.log', '.csv',
+        '.sql', '.sh', '.bat', '.java', '.c', '.cpp', '.h', '.go', '.rs',
+        '.rb', '.php', '.pdf', '.docx', '.xlsx'
+    }
+    
     def __init__(self):
         """初始化配置，从环境变量读取配置值"""
         # 从环境变量读取配置（此时.env文件应该已经加载）

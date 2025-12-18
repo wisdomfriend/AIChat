@@ -8,8 +8,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
     
     <!-- Highlight.js 代码高亮 (必须先加载) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/atom-one-dark.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     
     <!-- Marked.js Markdown解析 -->
     <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
@@ -94,6 +94,9 @@
 
             <div class="chat-input-area">
                 <div class="input-container">
+                    <!-- 已选择的文件显示区域 -->
+                    <div class="selected-files" id="selectedFiles"></div>
+                    
                     <div class="input-wrapper">
                         <textarea 
                             id="messageInput" 
@@ -102,6 +105,12 @@
                             rows="1"
                             onkeydown="handleKeyDown(event)"
                         ></textarea>
+                        <!-- 文件上传按钮 -->
+                        <button id="uploadButton" class="upload-button" onclick="triggerFileUpload()" title="上传文件">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
                         <button id="sendButton" class="send-button" onclick="sendMessage()" title="发送 (Enter)">
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                                 <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -110,9 +119,13 @@
                     </div>
                     <div class="input-footer">
                         <span class="token-info" id="tokenInfo"></span>
-                        <span class="input-hint">按 Enter 发送，Shift + Enter 换行</span>
+                        <span class="input-hint">按 Enter 发送，Shift + Enter 换行 | 支持上传文件进行对话</span>
                     </div>
                 </div>
+                
+                <!-- 隐藏的文件输入 -->
+                <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(event)" 
+                       accept=".txt,.md,.py,.json,.js,.ts,.html,.css,.xml,.yaml,.yml,.ini,.conf,.cfg,.log,.csv,.sql,.sh,.bat,.java,.c,.cpp,.h,.go,.rs,.rb,.php,.pdf,.docx,.xlsx">
             </div>
         </main>
     </div>
@@ -123,9 +136,179 @@
         const sendButton = document.getElementById('sendButton');
         const tokenInfo = document.getElementById('tokenInfo');
         const sessionsList = document.getElementById('sessionsList');
+        const selectedFilesContainer = document.getElementById('selectedFiles');
+        const fileInput = document.getElementById('fileInput');
         
         // 当前会话ID
         let currentSessionId = null;
+        
+        // 已选择的文件（存储上传后的文件信息）
+        let selectedFiles = [];
+        
+        // ==================== 文件上传相关 ====================
+        
+        // 触发文件选择
+        function triggerFileUpload() {
+            fileInput.click();
+        }
+        
+        // 处理文件选择
+        async function handleFileSelect(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+            
+            for (const file of files) {
+                await uploadFile(file);
+            }
+            
+            // 清空input，允许重复选择同一文件
+            fileInput.value = '';
+        }
+        
+        // 上传单个文件
+        async function uploadFile(file) {
+            // 检查文件大小
+            const maxSize = 100 * 1024 * 1024; // 100MB
+            if (file.size > maxSize) {
+                alert(`文件 "${file.name}" 过大，最大支持 100MB`);
+                return;
+            }
+            
+            // 显示上传中状态
+            const tempId = 'temp_' + Date.now();
+            addFileToSelection({
+                id: tempId,
+                original_filename: file.name,
+                file_size: file.size,
+                uploading: true
+            });
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await fetch('/api/files', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                // 移除临时状态
+                removeFileFromSelection(tempId);
+                
+                if (result.success) {
+                    // 添加上传成功的文件
+                    addFileToSelection({
+                        id: result.file_id,
+                        original_filename: result.filename,
+                        file_size: result.file_size,
+                        extraction_status: result.extraction_status,
+                        text_length: result.text_length
+                    });
+                    
+                    // 显示状态提示
+                    if (result.extraction_status === 'too_large') {
+                        tokenInfo.textContent = '⚠️ 文件内容过长，可能影响对话效果';
+                    } else if (result.extraction_status === 'failed') {
+                        tokenInfo.textContent = '⚠️ 文件内容提取失败';
+                    } else {
+                        tokenInfo.textContent = `✓ 已上传: ${result.filename}`;
+                    }
+                } else {
+                    alert(`上传失败: ${result.error}`);
+                }
+            } catch (error) {
+                removeFileFromSelection(tempId);
+                console.error('Upload error:', error);
+                alert(`上传失败: ${error.message}`);
+            }
+        }
+        
+        // 添加文件到已选择列表
+        function addFileToSelection(fileInfo) {
+            // 检查是否已存在（非临时文件）
+            if (!fileInfo.uploading && selectedFiles.some(f => f.id === fileInfo.id)) {
+                return;
+            }
+            
+            selectedFiles.push(fileInfo);
+            renderSelectedFiles();
+        }
+        
+        // 从已选择列表移除文件
+        function removeFileFromSelection(fileId) {
+            selectedFiles = selectedFiles.filter(f => f.id !== fileId);
+            renderSelectedFiles();
+        }
+        
+        // 渲染已选择的文件
+        function renderSelectedFiles() {
+            if (selectedFiles.length === 0) {
+                selectedFilesContainer.innerHTML = '';
+                selectedFilesContainer.style.display = 'none';
+                return;
+            }
+            
+            selectedFilesContainer.style.display = 'flex';
+            selectedFilesContainer.innerHTML = selectedFiles.map(file => {
+                const sizeStr = formatFileSize(file.file_size);
+                const statusIcon = file.uploading ? '⏳' : 
+                                   file.extraction_status === 'success' ? '✓' :
+                                   file.extraction_status === 'too_large' ? '⚠️' : '❌';
+                
+                return `
+                    <div class="selected-file ${file.uploading ? 'uploading' : ''}" data-file-id="${file.id}">
+                        <div class="file-icon">${getFileIcon(file.original_filename)}</div>
+                        <div class="file-info">
+                            <div class="file-name">${escapeHtml(file.original_filename)}</div>
+                            <div class="file-size">${sizeStr} ${statusIcon}</div>
+                        </div>
+                        ${!file.uploading ? `
+                            <button class="file-remove" onclick="removeFileFromSelection('${file.id}')" title="移除">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // 获取文件图标
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const iconMap = {
+                'pdf': '📄',
+                'docx': '📝',
+                'xlsx': '📊',
+                'txt': '📃',
+                'md': '📋',
+                'py': '🐍',
+                'js': '🟨',
+                'ts': '🔷',
+                'json': '{ }',
+                'html': '🌐',
+                'css': '🎨',
+                'sql': '🗃️'
+            };
+            return iconMap[ext] || '📎';
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        // 清除所有已选择的文件
+        function clearSelectedFiles() {
+            selectedFiles = [];
+            renderSelectedFiles();
+        }
 
         // ==================== Markdown 渲染配置 ====================
         
@@ -283,7 +466,7 @@
         }
 
         // 添加消息到聊天界面
-        function addMessage(content, isUser = true, usage = null, messageDiv = null) {
+        function addMessage(content, isUser = true, usage = null, messageDiv = null, files = null) {
             // 移除欢迎屏幕
             const welcomeScreen = chatMessages.querySelector('.welcome-screen');
             if (welcomeScreen) {
@@ -297,6 +480,20 @@
                 
                 const messageWrapper = document.createElement('div');
                 messageWrapper.className = 'message-wrapper';
+                
+                // 如果有文件，先显示文件
+                if (files && files.length > 0 && isUser) {
+                    const filesDiv = document.createElement('div');
+                    filesDiv.className = 'message-files';
+                    filesDiv.innerHTML = files.map(f => `
+                        <div class="message-file">
+                            <span class="file-icon">${getFileIcon(f.filename)}</span>
+                            <span class="file-name">${escapeHtml(f.filename)}</span>
+                            <span class="file-size">${formatFileSize(f.file_size)}</span>
+                        </div>
+                    `).join('');
+                    messageWrapper.appendChild(filesDiv);
+                }
                 
                 const messageContent = document.createElement('div');
                 messageContent.className = 'message-content';
@@ -387,10 +584,23 @@
             sendButton.disabled = true;
             sendButton.classList.add('disabled');
 
-            // 添加用户消息
-            addMessage(message, true);
+            // 获取当前选择的文件（过滤掉上传中的）
+            const currentFiles = selectedFiles.filter(f => !f.uploading);
+            const fileIds = currentFiles.map(f => f.id);
+            
+            // 准备显示的文件信息
+            const displayFiles = currentFiles.map(f => ({
+                filename: f.original_filename,
+                file_size: f.file_size
+            }));
+
+            // 添加用户消息（包含文件）
+            addMessage(message, true, null, null, displayFiles.length > 0 ? displayFiles : null);
             messageInput.value = '';
             messageInput.style.height = 'auto';
+            
+            // 清除已选择的文件
+            clearSelectedFiles();
 
             // 移除加载状态（流式不需要）
             removeLoading();
@@ -411,7 +621,8 @@
                     },
                     body: JSON.stringify({ 
                         message: message,
-                        session_id: currentSessionId
+                        session_id: currentSessionId,
+                        file_ids: fileIds
                     })
                 });
 
@@ -603,7 +814,7 @@
                 
                 // 渲染历史消息（延迟一点确保 KaTeX 已加载）
                 messages.forEach(msg => {
-                    addMessage(msg.content, msg.role === 'user');
+                    addMessage(msg.content, msg.role === 'user', null, null, msg.files || null);
                 });
                 
                 // 确保所有数学公式都渲染完成

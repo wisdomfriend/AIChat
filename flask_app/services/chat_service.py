@@ -5,6 +5,7 @@ from datetime import datetime
 from ..database import get_session
 from ..models import ApiKey, TokenUsage, ChatSession, ChatMessage
 from ..config import Config
+from .file_service import FileService
 
 
 class ChatService:
@@ -213,20 +214,25 @@ class ChatService:
         finally:
             db.close()
     
-    def save_message(self, session_id, role, content):
+    def save_message(self, session_id, role, content, file_ids=None):
         """保存聊天消息
         
         Args:
             session_id: 会话ID
             role: 角色 ('user' 或 'assistant')
             content: 消息内容
+            file_ids: 关联的文件ID列表
         """
         db = get_session()
         try:
+            # 将 file_ids 转换为 JSON 字符串
+            file_ids_str = json.dumps(file_ids) if file_ids else None
+            
             message = ChatMessage(
                 session_id=session_id,
                 role=role,
-                content=content
+                content=content,
+                file_ids=file_ids_str
             )
             db.add(message)
             db.commit()
@@ -266,15 +272,16 @@ class ChatService:
         finally:
             db.close()
     
-    def get_session_messages(self, session_id, user_id):
+    def get_session_messages(self, session_id, user_id, include_files=False):
         """获取会话的所有消息
         
         Args:
             session_id: 会话ID
             user_id: 用户ID（用于验证权限）
+            include_files: 是否包含文件详细信息
             
         Returns:
-            消息列表，格式为 [{'role': 'user', 'content': '...'}, ...]
+            消息列表，格式为 [{'role': 'user', 'content': '...', 'files': [...]}, ...]
         """
         db = get_session()
         try:
@@ -291,10 +298,36 @@ class ChatService:
                 ChatMessage.session_id == session_id
             ).order_by(ChatMessage.created_at.asc()).all()
             
-            return [{
-                'role': m.role,
-                'content': m.content
-            } for m in messages]
+            result = []
+            for m in messages:
+                msg_data = {
+                    'role': m.role,
+                    'content': m.content
+                }
+                
+                # 解析文件ID并获取文件信息
+                if m.file_ids and include_files:
+                    try:
+                        file_ids = json.loads(m.file_ids)
+                        if file_ids:
+                            file_service = FileService()
+                            files = []
+                            for fid in file_ids:
+                                file_info = file_service.get_file(fid, user_id)
+                                if file_info:
+                                    files.append({
+                                        'id': file_info['id'],
+                                        'filename': file_info['original_filename'],
+                                        'file_size': file_info['file_size'],
+                                        'file_extension': file_info['file_extension']
+                                    })
+                            msg_data['files'] = files
+                    except json.JSONDecodeError:
+                        pass
+                
+                result.append(msg_data)
+            
+            return result
         except Exception as e:
             print(f"Get session messages error: {e}")
             return None
@@ -346,13 +379,14 @@ class ChatService:
             title += "..."
         return title
     
-    def process_chat_stream_with_session(self, user_id, session_id, message):
+    def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None):
         """处理带会话的流式聊天请求
         
         Args:
             user_id: 用户ID
             session_id: 会话ID（如果为None则创建新会话）
             message: 用户消息
+            file_ids: 附加的文件ID列表
             
         Yields:
             SSE格式的数据流
@@ -379,11 +413,26 @@ class ChatService:
             if len(history_messages) > 10:
                 history_messages = history_messages[-10:]
             
+            # 处理文件上下文
+            file_context = ""
+            if file_ids:
+                file_service = FileService()
+                file_contexts = []
+                for file_id in file_ids:
+                    context = file_service.format_file_context(file_id, user_id)
+                    if context:
+                        file_contexts.append(context)
+                
+                if file_contexts:
+                    file_context = "\n\n---\n以下是用户上传的文件内容，请根据文件内容回答问题：\n\n" + "\n\n---\n\n".join(file_contexts) + "\n---\n\n"
+            
             # 构建消息列表（包含system提示词、历史消息和当前消息）
             api_messages = []
             
             # 添加system角色提示词
             system_prompt = "你是一个友好、专业且乐于助人的AI助手。你的目标是提供准确、有用和清晰的信息，帮助用户解决问题。请用简洁明了的语言回答，如果遇到不确定的问题，请诚实说明。"
+            if file_context:
+                system_prompt += "\n\n用户可能会上传文件，当用户上传文件时，请仔细阅读文件内容并基于文件内容回答问题。"
             api_messages.append({
                 'role': 'system',
                 'content': system_prompt
@@ -396,14 +445,17 @@ class ChatService:
                     'content': msg['content']
                 })
             
+            # 构建用户消息（包含文件上下文）
+            user_content = file_context + message if file_context else message
+            
             # 添加当前用户消息
             api_messages.append({
                 'role': 'user',
-                'content': message
+                'content': user_content
             })
             
-            # 保存用户消息
-            self.save_message(session_id, 'user', message)
+            # 保存用户消息（包含文件ID）
+            self.save_message(session_id, 'user', message, file_ids if file_ids else None)
             
             # 获取API key
             api_key = self.get_active_api_key()

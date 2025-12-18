@@ -164,6 +164,10 @@ tmp/
 temp/
 *.tmp
 
+# 用户上传的文件（保留目录结构）
+uploads/*
+!uploads/.gitkeep
+
 # 操作系统文件
 .DS_Store
 .DS_Store?

@@ -13,7 +13,7 @@
 
 ###  核心特性
 
--  **AI 聊天功能**：集成 DeepSeek API，支持实时对话交互,支持公式/代码/markdown的格式化显示
+-  **AI 聊天功能**：集成 DeepSeek API，支持实时对话交互，上传文件，支持公式/代码/markdown的格式化显示
 -  **用户认证系统**：完整的登录/注册功能，Redis Session 管理
 -  **使用统计**：Token 使用量统计和记录查询
 -  **管理后台**：API Key 管理和全局统计
@@ -435,6 +435,8 @@ docker-compose exec -T mysql mysql -u guopengfei_learning -pGpf_learning nginx_s
    - 返回友好的错误提示信息
 4. ✅ **显示优化**
    - ✅ 支持markdown/公式/代码的格式化显示,使用KaTeX/Marked.js/Highlight.js
+5✅ **文件对话**
+   - ✅ 支持pdf/docx/xlsx文件对话
 
 
 

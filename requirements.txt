@@ -1,29 +1,34 @@
-# Flask Web框架 - 用于构建Web应用和API
+# Flask Web Framework
 Flask==3.0.0
 
-# Flask CORS扩展 - 处理跨域资源共享（CORS）请求
+# Flask CORS extension
 flask-cors==4.0.0
 
-# HTTP请求库 - 用于发送HTTP请求和调用外部API
+# HTTP requests library
 requests==2.31.0
 
-# WSGI HTTP服务器 - 用于生产环境部署Flask应用
+# WSGI HTTP Server for production
 gunicorn==21.2.0
 
-# SQLAlchemy ORM - 用于数据库操作和ORM映射
+# SQLAlchemy ORM
 SQLAlchemy==2.0.32
 
-# MySQL数据库驱动 - SQLAlchemy的MySQL连接器
+# MySQL database driver
 PyMySQL==1.1.1
 
-# 环境变量管理 - 从.env文件加载环境变量配置
+# Environment variables management
 python-dotenv==1.0.0
 
-# PyMySQL调用的加密库
+# Cryptography library for PyMySQL
 cryptography>=42.0.0
 
-# Redis客户端 - 用于连接Redis服务器
+# Redis client
 redis==5.0.1
 
-# Flask Session扩展 - 支持将Session存储到Redis
+# Flask Session extension with Redis support
 Flask-Session==0.5.0
+
+# File parsing libraries
+pdfplumber==0.10.3
+python-docx==1.1.0
+openpyxl==3.1.2

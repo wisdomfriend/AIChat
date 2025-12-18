@@ -804,6 +804,159 @@ body {
     color: rgba(255, 255, 255, 0.3);
 }
 
+/* ==================== 文件上传相关样式 ==================== */
+
+/* 上传按钮 */
+.upload-button {
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.upload-button:hover {
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.upload-button:active {
+    transform: scale(0.95);
+}
+
+/* 已选择文件区域 */
+.selected-files {
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+}
+
+/* 单个已选择的文件 */
+.selected-file {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 8px;
+    max-width: 250px;
+    transition: all 0.2s ease;
+}
+
+.selected-file:hover {
+    background: rgba(102, 126, 234, 0.15);
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+.selected-file.uploading {
+    opacity: 0.6;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 0.9; }
+}
+
+.selected-file .file-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.selected-file .file-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.selected-file .file-name {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.selected-file .file-size {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 2px;
+}
+
+.selected-file .file-remove {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.selected-file .file-remove:hover {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+}
+
+/* 消息中的文件显示 */
+.message-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.message-file {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.user-message .message-file {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.message-file .file-icon {
+    font-size: 16px;
+}
+
+.message-file .file-name {
+    color: rgba(255, 255, 255, 0.95);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.message-file .file-size {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 11px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .sidebar {

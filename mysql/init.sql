@@ -49,6 +49,53 @@ CREATE TABLE IF NOT EXISTS token_usage (
 INSERT IGNORE INTO api_keys (api_key, provider, is_active) VALUES
 ('sk-65b28c89462246eab967c91b52185***', 'deepseek', TRUE);
 
+-- 创建聊天会话表
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_chat_sessions_user_id (user_id),
+    INDEX idx_chat_sessions_updated_at (updated_at)
+);
+
+-- 创建聊天消息表
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id INT NOT NULL,
+    role VARCHAR(20) NOT NULL,
+    content TEXT NOT NULL,
+    file_ids VARCHAR(500) DEFAULT NULL COMMENT '关联的文件ID列表，JSON格式',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    INDEX idx_chat_messages_session_id (session_id),
+    INDEX idx_chat_messages_created_at (created_at)
+);
+
+-- 创建上传文件表
+CREATE TABLE IF NOT EXISTS uploaded_files (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    stored_filename VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size BIGINT NOT NULL,
+    file_type VARCHAR(100) NOT NULL,
+    file_extension VARCHAR(20) NOT NULL,
+    extracted_text MEDIUMTEXT,
+    text_length INT DEFAULT 0,
+    extraction_status ENUM('pending', 'success', 'failed', 'too_large') DEFAULT 'pending',
+    error_message VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_uploaded_files_user_id (user_id),
+    INDEX idx_uploaded_files_stored_filename (stored_filename),
+    INDEX idx_uploaded_files_created_at (created_at),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户上传的文件表';
+
 -- 创建索引以提高查询性能
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_proxy_logs_user_id ON proxy_logs(user_id);

@@ -13,10 +13,10 @@
 
 ###  核心特性
 
--  **AI 聊天功能**：集成 DeepSeek API，支持实时对话交互
+-  **AI 聊天功能**：集成 DeepSeek API，支持实时对话交互,支持公式/代码/markdown的格式化显示
 -  **用户认证系统**：完整的登录/注册功能，Redis Session 管理
 -  **使用统计**：Token 使用量统计和记录查询
-- ️ **管理后台**：API Key 管理和全局统计
+-  **管理后台**：API Key 管理和全局统计
 -  **容器化部署**：Docker Compose 一键部署
 -  **响应式设计**：适配不同屏幕尺寸
 
@@ -416,7 +416,7 @@ docker-compose exec -T mysql mysql -u guopengfei_learning -pGpf_learning nginx_s
 
 以下是计划中的功能改进和优化：
 
-1. ✅ **集成 Redis 缓存**（已完成）
+1. ✅ **集成 Redis 缓存**
    - ✅ 添加 Redis 服务到 Docker Compose
    - ✅ 将 Flask Session 从默认存储迁移到 Redis
    - ✅ 提升 Session 管理的性能和可扩展性
@@ -433,6 +433,9 @@ docker-compose exec -T mysql mysql -u guopengfei_learning -pGpf_learning nginx_s
    - 限制规则：1 分钟内最多访问 5 次
    - 基于用户 ID 或 IP 地址进行限流
    - 返回友好的错误提示信息
+4. ✅ **显示优化**
+   - ✅ 支持markdown/公式/代码的格式化显示,使用KaTeX/Marked.js/Highlight.js
+
 
 
 ## 更新日志

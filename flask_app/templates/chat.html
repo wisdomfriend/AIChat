@@ -6,6 +6,18 @@
     <title>DeepSeek AI 聊天</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+    
+    <!-- Highlight.js 代码高亮 (必须先加载) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+    
+    <!-- Marked.js Markdown解析 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+    
+    <!-- KaTeX 数学公式渲染 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 </head>
 <body>
     <div class="chat-app">
@@ -115,6 +127,147 @@
         // 当前会话ID
         let currentSessionId = null;
 
+        // ==================== Markdown 渲染配置 ====================
+        
+        // 配置 marked
+        marked.setOptions({
+            breaks: true,      // 支持 GitHub 风格的换行
+            gfm: true,         // 启用 GitHub 风格 Markdown
+            headerIds: false,  // 禁用标题 ID
+            mangle: false      // 禁用邮箱地址转换
+        });
+
+        // 自定义渲染器
+        const renderer = new marked.Renderer();
+        
+        // 代码块渲染 - 添加复制按钮
+        renderer.code = function(code, language) {
+            let highlighted = code;
+            let validLang = language || 'plaintext';
+            
+            // 检查 hljs 是否已加载
+            if (typeof hljs !== 'undefined') {
+                if (language && hljs.getLanguage(language)) {
+                    validLang = language;
+                    highlighted = hljs.highlight(code, { language: validLang, ignoreIllegals: true }).value;
+                } else {
+                    // 自动检测语言
+                    const result = hljs.highlightAuto(code);
+                    highlighted = result.value;
+                    validLang = result.language || 'plaintext';
+                }
+            } else {
+                // hljs 未加载时，转义 HTML
+                highlighted = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+            
+            const langLabel = language || validLang || 'code';
+            return `<div class="code-block">
+                <div class="code-header">
+                    <span class="code-lang">${langLabel}</span>
+                    <button class="copy-btn" onclick="copyCode(this)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span>复制</span>
+                    </button>
+                </div>
+                <pre><code class="hljs language-${validLang}">${highlighted}</code></pre>
+            </div>`;
+        };
+
+        // 行内代码
+        renderer.codespan = function(code) {
+            return `<code class="inline-code">${code}</code>`;
+        };
+
+        marked.setOptions({ renderer: renderer });
+
+        // 渲染 Markdown 内容
+        function renderMarkdown(content) {
+            if (!content) return '';
+            
+            // 保护数学公式，避免被 Markdown 解析干扰
+            const mathBlocks = [];
+            const mathInlines = [];
+            
+            // 保护块级公式 $$...$$
+            content = content.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+                mathBlocks.push(formula);
+                return `%%MATH_BLOCK_${mathBlocks.length - 1}%%`;
+            });
+            
+            // 保护块级公式 \[...\]
+            content = content.replace(/\\\[([\s\S]*?)\\\]/g, (match, formula) => {
+                mathBlocks.push(formula);
+                return `%%MATH_BLOCK_${mathBlocks.length - 1}%%`;
+            });
+            
+            // 保护行内公式 $...$（避免匹配 $$）
+            content = content.replace(/(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/g, (match, formula) => {
+                mathInlines.push(formula);
+                return `%%MATH_INLINE_${mathInlines.length - 1}%%`;
+            });
+            
+            // 保护行内公式 \(...\)
+            content = content.replace(/\\\(([\s\S]*?)\\\)/g, (match, formula) => {
+                mathInlines.push(formula);
+                return `%%MATH_INLINE_${mathInlines.length - 1}%%`;
+            });
+            
+            // 解析 Markdown
+            let html = marked.parse(content);
+            
+            // 恢复块级公式
+            html = html.replace(/%%MATH_BLOCK_(\d+)%%/g, (match, index) => {
+                return `<div class="math-block">$$${mathBlocks[parseInt(index)]}$$</div>`;
+            });
+            
+            // 恢复行内公式
+            html = html.replace(/%%MATH_INLINE_(\d+)%%/g, (match, index) => {
+                return `<span class="math-inline">$${mathInlines[parseInt(index)]}$</span>`;
+            });
+            
+            return html;
+        }
+
+        // 渲染数学公式（KaTeX）
+        function renderMath(element) {
+            if (typeof renderMathInElement !== 'undefined') {
+                renderMathInElement(element, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false,
+                    errorColor: '#ff6b6b',
+                    trust: true
+                });
+            }
+        }
+
+        // 复制代码功能
+        function copyCode(button) {
+            const codeBlock = button.closest('.code-block');
+            const code = codeBlock.querySelector('code').textContent;
+            
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = button.querySelector('span').textContent;
+                button.querySelector('span').textContent = '已复制!';
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.querySelector('span').textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('复制失败:', err);
+            });
+        }
+
         // 自动调整输入框高度
         messageInput.addEventListener('input', function() {
             this.style.height = 'auto';
@@ -147,6 +300,10 @@
                 
                 const messageContent = document.createElement('div');
                 messageContent.className = 'message-content';
+                // AI 消息添加 markdown-body 类以应用样式
+                if (!isUser) {
+                    messageContent.classList.add('markdown-body');
+                }
                 messageWrapper.appendChild(messageContent);
                 
                 messageDiv.appendChild(messageWrapper);
@@ -155,9 +312,16 @@
             
             const messageContent = messageDiv.querySelector('.message-content');
             if (messageContent) {
-                // 处理换行和代码块
-                const formattedContent = content.replace(/\n/g, '<br>');
-                messageContent.innerHTML = formattedContent;
+                if (isUser) {
+                    // 用户消息：简单处理换行，转义HTML
+                    const escapedContent = escapeHtml(content);
+                    messageContent.innerHTML = escapedContent.replace(/\n/g, '<br>');
+                } else {
+                    // AI 消息：使用 Markdown 渲染
+                    messageContent.innerHTML = renderMarkdown(content);
+                    // 渲染数学公式
+                    renderMath(messageContent);
+                }
             }
             
             // 处理 usage 信息
@@ -437,10 +601,16 @@
                 // 清空当前消息
                 chatMessages.innerHTML = '';
                 
-                // 渲染历史消息
+                // 渲染历史消息（延迟一点确保 KaTeX 已加载）
                 messages.forEach(msg => {
                     addMessage(msg.content, msg.role === 'user');
                 });
+                
+                // 确保所有数学公式都渲染完成
+                setTimeout(() => {
+                    const aiMessages = chatMessages.querySelectorAll('.ai-message .message-content');
+                    aiMessages.forEach(el => renderMath(el));
+                }, 100);
                 
                 // 如果没有消息，显示欢迎界面
                 if (messages.length === 0) {

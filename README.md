@@ -5,31 +5,29 @@
 [![Flask](https://img.shields.io/badge/Flask-3.0.0-green.svg)](https://flask.palletsprojects.com/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 
-> 🚀 **一个基于 Docker 和 Docker Compose 部署的全栈 Web 应用，集成了 AI 聊天功能**
+> **5分钟搭建你自己的DeepSeek AI 聊天应用！Flask 全栈项目：用户注册认证 + 流式响应 + Token 统计 | Docker 一键部署，开箱即用**
 
 ## 📖 项目简介
 
 **AIChat** 是一个开源的 AI 聊天 Web 应用，采用现代化的全栈架构设计。项目使用 **Flask** 作为后端框架，**MySQL** 作为数据库，**Redis** 作为缓存和 Session 存储，并集成了 **DeepSeek API** 提供 AI 聊天服务。通过 **Docker Compose** 实现一键部署，支持 **Nginx** 反向代理和 **HTTPS/SSL** 加密。
 
-### ✨ 核心特性
+###  核心特性
 
-- 🤖 **AI 聊天功能**：集成 DeepSeek API，支持实时对话交互
-- 🔐 **用户认证系统**：完整的登录/注册功能，Redis Session 管理
-- 📊 **使用统计**：Token 使用量统计和记录查询
-- 🛡️ **管理后台**：API Key 管理和全局统计
-- 🐳 **容器化部署**：Docker Compose 一键部署
-- 🔒 **HTTPS 支持**：Nginx 反向代理，SSL 证书配置
-- ⚡ **高性能**：Redis 缓存，Gunicorn 多进程
-- 📱 **响应式设计**：适配不同屏幕尺寸
+-  **AI 聊天功能**：集成 DeepSeek API，支持实时对话交互
+-  **用户认证系统**：完整的登录/注册功能，Redis Session 管理
+-  **使用统计**：Token 使用量统计和记录查询
+- ️ **管理后台**：API Key 管理和全局统计
+-  **容器化部署**：Docker Compose 一键部署
+-  **响应式设计**：适配不同屏幕尺寸
 
-### 🌐 在线演示
+###  在线演示
 
 - **部署地址**: https://guopengfei.top
 - **作者邮箱**: wisdomfriend@126.com（有问题欢迎发邮件）
 
-### 🏷️ 技术标签
+### ️ 技术标签
 
-`Flask` `Python` `Docker` `Docker Compose` `Nginx` `MySQL` `Redis` `AI Chat` `DeepSeek API` `Web Application` `Full Stack` `Backend` `Frontend` `HTTPS` `SSL` `Session Management` `RESTful API` `Microservices` `Containerization`
+`Flask` `Python` `Docker` `DeepSeek API` 
 
 ## 技术栈
 
@@ -436,22 +434,17 @@ docker-compose exec -T mysql mysql -u guopengfei_learning -pGpf_learning nginx_s
    - 基于用户 ID 或 IP 地址进行限流
    - 返回友好的错误提示信息
 
-## 许可证
-
-本项目仅用于学习目的。
 
 ## 更新日志
 
-### v2.1 - Redis Session 集成（最新）
+### v2.1 - Redis Session 集成
 
-**重大改进**:
-- ✨ **Redis Session 存储**: 集成 Redis 7 容器，将 Session 从文件系统迁移到 Redis
-- 🔧 **自定义 Session 接口**: 新增 `session_interface.py`，修复 session_id bytes 类型兼容性问题
-- 🚀 **性能提升**: 
+-  **Redis Session 存储**: 集成 Redis 7 容器，将 Session 从文件系统迁移到 Redis
+-  **自定义 Session 接口**: 新增 `session_interface.py`，修复 session_id bytes 类型兼容性问题
+-  **性能提升**: 
   - Session 读写性能显著提升
   - 支持多实例部署时的 Session 共享
   - 支持 AOF 持久化，数据更安全
-- 🛡️ **容错机制**: Redis 连接失败时自动回退到文件系统 Session，确保服务可用性
 
 **技术改进**:
 - Redis 7 (Alpine) 容器化部署
@@ -462,16 +455,15 @@ docker-compose exec -T mysql mysql -u guopengfei_learning -pGpf_learning nginx_s
 
 ### v2.0 - 架构重构
 
-**重大改进**:
-- ✨ **模块化架构重构**: 采用应用工厂模式和 Blueprint 路由模块化
-- 📁 **代码组织优化**: 
+-  **模块化架构重构**: 采用应用工厂模式和 Blueprint 路由模块化
+-  **代码组织优化**: 
   - 路由按功能拆分到 `routes/` 目录
   - 业务逻辑封装到 `services/` 目录
   - 配置、模型、数据库管理独立模块
-- 🐳 **Docker 优化**: 
+-  **Docker 优化**: 
   - 移除 Nginx Dockerfile，直接使用官方 nginx:alpine 镜像
   - 配置通过 volumes 挂载，便于开发时修改
-- 🗑️ **清理冗余**: 删除不再需要的 `html/` 静态文件夹
+
 
 **技术改进**:
 - 应用工厂模式 (`create_app()`)

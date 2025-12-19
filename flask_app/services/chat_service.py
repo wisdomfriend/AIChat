@@ -403,13 +403,12 @@ class ChatService:
                 yield f"data: {json.dumps({'type': 'session_id', 'session_id': session_id})}\n\n"
             
             # 获取历史消息
-            history_messages = self.get_session_messages(session_id, user_id)
+            history_messages = self.get_session_messages(session_id, user_id, include_files=True)
             if history_messages is None:
                 yield f"data: {json.dumps({'type': 'error', 'message': '会话不存在或无权限'})}\n\n"
                 return
-            
-            # 只保留最近5对对话（即最近10条消息，user-assistant成对）
-            # 如果历史消息数量超过10条，只保留最后10条
+
+            # 只保留最近5对对话（即最近10条消息，user-assistant成对） 如果历史消息数量超过10条，只保留最后10条
             if len(history_messages) > 10:
                 history_messages = history_messages[-10:]
             

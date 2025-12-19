@@ -83,29 +83,6 @@ def get_sessions():
         return jsonify({'error': '获取会话列表失败'}), 500
 
 
-@api_bp.route('/sessions', methods=['POST'])
-def create_session():
-    """创建新会话"""
-    user = get_current_user()
-    if not user:
-        return jsonify({'error': '未登录'}), 401
-    
-    try:
-        data = request.get_json() or {}
-        title = data.get('title')
-        
-        chat_service = ChatService()
-        session_id = chat_service.create_session(user['id'], title)
-        
-        if session_id:
-            return jsonify({'session_id': session_id})
-        else:
-            return jsonify({'error': '创建会话失败'}), 500
-    except Exception as e:
-        print(f"Create session error: {e}")
-        return jsonify({'error': '创建会话失败'}), 500
-
-
 @api_bp.route('/sessions/<int:session_id>/messages', methods=['GET'])
 def get_session_messages(session_id):
     """获取会话的所有消息"""
@@ -125,32 +102,6 @@ def get_session_messages(session_id):
     except Exception as e:
         print(f"Get session messages error: {e}")
         return jsonify({'error': '获取消息失败'}), 500
-
-
-@api_bp.route('/sessions/<int:session_id>/title', methods=['PUT'])
-def update_session_title(session_id):
-    """更新会话主题"""
-    user = get_current_user()
-    if not user:
-        return jsonify({'error': '未登录'}), 401
-    
-    try:
-        data = request.get_json()
-        title = data.get('title', '').strip()
-        
-        if not title:
-            return jsonify({'error': '主题不能为空'}), 400
-        
-        chat_service = ChatService()
-        success = chat_service.update_session_title(session_id, user['id'], title)
-        
-        if success:
-            return jsonify({'success': True})
-        else:
-            return jsonify({'error': '更新失败'}), 404
-    except Exception as e:
-        print(f"Update session title error: {e}")
-        return jsonify({'error': '更新失败'}), 500
 
 
 # ==================== 文件相关 API ====================

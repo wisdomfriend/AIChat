@@ -5,6 +5,7 @@ from .stats_service import StatsService
 from .file_service import FileService
 from .langchain_memory_manager import LangChainMemoryManager
 from .memory_store import MySQLChatMessageHistory
+from .llm_service import LLMService
 
 __all__ = [
     'AuthService', 
@@ -12,6 +13,7 @@ __all__ = [
     'StatsService', 
     'FileService',
     'LangChainMemoryManager',
-    'MySQLChatMessageHistory'
+    'MySQLChatMessageHistory',
+    'LLMService'
 ]
 

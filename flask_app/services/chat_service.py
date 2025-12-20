@@ -1,12 +1,13 @@
 """聊天服务"""
 import json
-import requests
+import asyncio
 from datetime import datetime
 from ..database import get_session
 from ..models import ApiKey, TokenUsage, ChatSession, ChatMessage
 from ..config import Config
 from .file_service import FileService
 from .langchain_memory_manager import LangChainMemoryManager
+from .llm_service import LLMService
 
 
 class ChatService:
@@ -14,41 +15,16 @@ class ChatService:
     
     def __init__(self):
         self.config = Config()
-        self.api_url = self.config.DEEPSEEK_API_URL
+        self.llm_service = LLMService(self.config)
     
-    def get_active_api_key(self):
-        """获取当前活跃的API key"""
-        db = get_session()
-        try:
-            api_key_obj = db.query(ApiKey).filter(ApiKey.is_active == True).first()
-            return api_key_obj.api_key if api_key_obj else None
-        finally:
-            db.close()
-    
-    def call_deepseek_api(self, messages, api_key, stream=False):
-        """调用DeepSeek API
+    def save_token_usage(self, user_id, usage_data, model_name):
+        """保存token使用记录
         
         Args:
-            messages: 消息列表，格式为 [{'role': 'user', 'content': '...'}, ...]
-            api_key: API密钥
-            stream: 是否使用流式响应
+            user_id: 用户ID
+            usage_data: token使用数据
+            model_name: 模型名称
         """
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {api_key}'
-        }
-        
-        payload = {
-            'model': 'deepseek-chat',
-            'messages': messages,
-            'stream': stream
-        }
-        
-        response = requests.post(self.api_url, headers=headers, json=payload, timeout=30, stream=stream)
-        return response
-    
-    def save_token_usage(self, user_id, usage_data):
-        """保存token使用记录"""
         db = get_session()
         try:
             token_usage = TokenUsage(
@@ -56,7 +32,7 @@ class ChatService:
                 prompt_tokens=usage_data.get('prompt_tokens', 0),
                 completion_tokens=usage_data.get('completion_tokens', 0),
                 total_tokens=usage_data.get('total_tokens', 0),
-                model='deepseek-chat'
+                model=model_name
             )
             db.add(token_usage)
             db.commit()
@@ -66,131 +42,13 @@ class ChatService:
         finally:
             db.close()
     
-    def process_chat(self, user_id, message):
-        """处理聊天请求"""
-        # 获取API key
-        api_key = self.get_active_api_key()
-        if not api_key:
-            return {
-                'success': False,
-                'error': '未配置API key'
-            }
-        
-        # 调用API
-        try:
-            messages = [{'role': 'user', 'content': message}]
-            response = self.call_deepseek_api(messages, api_key)
-            
-            if response.status_code != 200:
-                return {
-                    'success': False,
-                    'error': f'API调用失败: {response.text}'
-                }
-            
-            result = response.json()
-            
-            # 提取响应和token使用信息
-            usage = result.get('usage', {})
-            assistant_message = result.get('choices', [{}])[0].get('message', {}).get('content', '')
-            
-            # 保存token使用记录
-            self.save_token_usage(user_id, usage)
-            
-            return {
-                'success': True,
-                'message': assistant_message,
-                'usage': {
-                    'prompt_tokens': usage.get('prompt_tokens', 0),
-                    'completion_tokens': usage.get('completion_tokens', 0),
-                    'total_tokens': usage.get('total_tokens', 0)
-                }
-            }
-            
-        except requests.exceptions.RequestException as e:
-            return {
-                'success': False,
-                'error': f'网络请求失败: {str(e)}'
-            }
-        except Exception as e:
-            print(f"Process chat error: {e}")
-            return {
-                'success': False,
-                'error': f'处理请求时出错: {str(e)}'
-            }
-    
-    def process_chat_stream(self, user_id, message):
-        """处理流式聊天请求，返回生成器（已废弃，建议使用process_chat_stream_with_session）"""
-        # 获取API key
-        api_key = self.get_active_api_key()
-        if not api_key:
-            yield f"data: {json.dumps({'type': 'error', 'message': '未配置API key'})}\n\n"
-            return
-        
-        # 调用流式API
-        try:
-            messages = [{'role': 'user', 'content': message}]
-            response = self.call_deepseek_api(messages, api_key, stream=True)
-            
-            if response.status_code != 200:
-                error_text = response.text
-                yield f"data: {json.dumps({'type': 'error', 'message': f'API调用失败: {error_text}'})}\n\n"
-                return
-            
-            # 解析流式响应
-            usage = None
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                
-                # 移除 'data: ' 前缀
-                if line.startswith(b'data: '):
-                    line = line[6:]
-                
-                # 检查是否结束
-                if line.strip() == b'[DONE]':
-                    break
-                
-                try:
-                    data = json.loads(line.decode('utf-8'))
-                    
-                    # 提取usage信息（可能在顶层，通常在最后一条消息中）
-                    if 'usage' in data:
-                        usage = data['usage']
-                    
-                    # 提取内容增量
-                    choices = data.get('choices', [])
-                    if choices:
-                        delta = choices[0].get('delta', {})
-                        content = delta.get('content', '')
-                        if content:
-                            yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
-                    
-                except json.JSONDecodeError:
-                    continue
-            
-            # 保存token使用记录
-            if usage:
-                self.save_token_usage(user_id, usage)
-                yield f"data: {json.dumps({'type': 'usage', 'usage': usage})}\n\n"
-            else:
-                # 如果没有收到usage信息，发送完成信号（可能API没有返回usage）
-                print("Warning: No usage information received from stream response")
-            
-            # 发送完成信号
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
-            
-        except requests.exceptions.RequestException as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': f'网络请求失败: {str(e)}'})}\n\n"
-        except Exception as e:
-            print(f"Process chat stream error: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': f'处理请求时出错: {str(e)}'})}\n\n"
-    
-    def create_session(self, user_id, title=None):
+    def create_session(self, user_id, title=None, llm_provider=None):
         """创建新的聊天会话
         
         Args:
             user_id: 用户ID
             title: 会话主题，如果为None则自动生成
+            llm_provider: 模型提供商ID，默认使用配置的默认模型
             
         Returns:
             会话ID
@@ -200,10 +58,17 @@ class ChatService:
             if not title:
                 title = "新对话"
             
+            # 确定使用的模型提供商
+            provider_id = llm_provider or self.config.LLM_DEFAULT_PROVIDER
+            
             session = ChatSession(
                 user_id=user_id,
                 title=title
             )
+            # 如果表中有 llm_provider 字段，设置它
+            if hasattr(ChatSession, 'llm_provider'):
+                session.llm_provider = provider_id
+            
             db.add(session)
             db.commit()
             db.refresh(session)
@@ -380,7 +245,7 @@ class ChatService:
             title += "..."
         return title
     
-    def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None):
+    def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None, llm_provider=None):
         """处理带会话的流式聊天请求（使用 LangChain Memory 管理对话历史）
         
         Args:
@@ -388,6 +253,7 @@ class ChatService:
             session_id: 会话ID（如果为None则创建新会话）
             message: 用户消息
             file_ids: 附加的文件ID列表
+            llm_provider: 模型提供商ID（可选，不传则使用会话保存的模型）
             
         Yields:
             SSE格式的数据流
@@ -396,14 +262,14 @@ class ChatService:
             # 如果session_id为None，创建新会话
             if not session_id:
                 title = self.generate_title_from_message(message)
-                session_id = self.create_session(user_id, title)
+                session_id = self.create_session(user_id, title, llm_provider)
                 if not session_id:
                     yield f"data: {json.dumps({'type': 'error', 'message': '创建会话失败'})}\n\n"
                     return
                 # 发送会话ID给前端
                 yield f"data: {json.dumps({'type': 'session_id', 'session_id': session_id})}\n\n"
             
-            # 验证会话权限
+            # 验证会话权限并确定使用的模型
             db = get_session()
             try:
                 session = db.query(ChatSession).filter(
@@ -413,6 +279,17 @@ class ChatService:
                 if not session:
                     yield f"data: {json.dumps({'type': 'error', 'message': '会话不存在或无权限'})}\n\n"
                     return
+                
+                # 确定使用的模型提供商
+                if llm_provider:
+                    # 请求中指定了模型，使用指定的并更新会话
+                    provider_id = llm_provider
+                    if hasattr(session, 'llm_provider'):
+                        session.llm_provider = provider_id
+                        db.commit()
+                else:
+                    # 使用会话保存的模型，如果会话没有则使用默认
+                    provider_id = getattr(session, 'llm_provider', None) or self.config.LLM_DEFAULT_PROVIDER
             finally:
                 db.close()
             
@@ -420,13 +297,22 @@ class ChatService:
             memory_type = self.config.LANGCHAIN_MEMORY_TYPE
             memory_kwargs = {}
             
+            # 获取 LLM 实例（用于 token_buffer memory）
+            llm = None
+            if memory_type == 'token_buffer' or memory_type == 'summary':
+                try:
+                    llm = self.llm_service.get_llm(provider_id)
+                    if memory_type == 'token_buffer':
+                        memory_kwargs['llm'] = llm
+                        memory_kwargs['max_token_limit'] = self.config.LANGCHAIN_TOKEN_BUFFER_LIMIT
+                    elif memory_type == 'summary':
+                        memory_kwargs['llm'] = llm
+                except Exception as e:
+                    print(f"Warning: 无法创建 LLM 实例用于 memory: {e}，回退到 buffer_window")
+                    memory_type = 'buffer_window'
+                    memory_kwargs['k'] = self.config.LANGCHAIN_BUFFER_WINDOW_K
+            
             if memory_type == 'buffer_window':
-                memory_kwargs['k'] = self.config.LANGCHAIN_BUFFER_WINDOW_K
-            elif memory_type == 'token_buffer':
-                memory_kwargs['max_token_limit'] = self.config.LANGCHAIN_TOKEN_BUFFER_LIMIT
-            elif memory_type == 'summary':
-                # Summary memory 需要 LLM，暂时不支持，回退到 buffer_window
-                memory_type = 'buffer_window'
                 memory_kwargs['k'] = self.config.LANGCHAIN_BUFFER_WINDOW_K
             
             memory_manager = LangChainMemoryManager(
@@ -447,77 +333,51 @@ class ChatService:
                 file_ids=file_ids,
                 system_prompt=system_prompt
             )
-
-            # 获取API key
-            api_key = self.get_active_api_key()
-            if not api_key:
-                yield f"data: {json.dumps({'type': 'error', 'message': '未配置API key'})}\n\n"
-                return
             
-            # 调用流式API
+            # 调用流式API（使用 LLMService）
             try:
-                response = self.call_deepseek_api(api_messages, api_key, stream=True)
-                
-                if response.status_code != 200:
-                    error_text = response.text
-                    yield f"data: {json.dumps({'type': 'error', 'message': f'API调用失败: {error_text}'})}\n\n"
-                    return
-                
-                # 解析流式响应
                 usage = None
                 assistant_content = ''
                 
-                for line in response.iter_lines(decode_unicode=False):
-                    if not line:
-                        continue
+                # 运行异步流式生成器
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    async_gen = self.llm_service.stream_chat(api_messages, provider_id)
                     
-                    # 只处理以 'data: ' 开头的SSE数据行，跳过HTTP响应头
-                    if not line.startswith(b'data: '):
-                        continue
-                    
-                    # 移除 'data: ' 前缀
-                    line = line[6:]
-                    
-                    # 检查是否结束
-                    if line.strip() == b'[DONE]':
-                        break
-                    
-                    # 跳过空行
-                    if not line.strip():
-                        continue
-                    
-                    try:
-                        data = json.loads(line.decode('utf-8'))
-                        
-                        # 提取usage信息
-                        if 'usage' in data:
-                            usage = data['usage']
-                        
-                        # 提取内容增量
-                        choices = data.get('choices', [])
-                        if choices:
-                            delta = choices[0].get('delta', {})
-                            content = delta.get('content', '')
-                            if content:
-                                assistant_content += content
-                                yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
-                        
-                    except json.JSONDecodeError:
-                        continue
+                    while True:
+                        try:
+                            chunk = loop.run_until_complete(async_gen.__anext__())
+                            yield chunk
+                            
+                            # 解析 chunk 提取内容
+                            if chunk.startswith('data: '):
+                                try:
+                                    data_str = chunk[6:].strip()
+                                    if data_str:
+                                        data = json.loads(data_str)
+                                        if data.get('type') == 'content':
+                                            assistant_content += data.get('content', '')
+                                        elif data.get('type') == 'usage':
+                                            usage = data.get('usage')
+                                except (json.JSONDecodeError, KeyError):
+                                    pass
+                        except StopAsyncIteration:
+                            break
+                finally:
+                    loop.close()
                 
                 # 保存AI回复和用户消息
                 if assistant_content:
                     # 使用 LangChain Memory Manager 保存对话上下文
-                    # 注意：
-                    # 1. user_file_ids 只关联到用户消息，不会关联到 AI 消息
-                    # 2. save_context 会同时保存用户消息和AI消息
-                    # 3. 如果API调用失败，用户消息不会被保存
                     memory_manager.save_context(message, assistant_content, user_file_ids=file_ids if file_ids else None)
                 
                 # 保存token使用记录
                 if usage:
-                    self.save_token_usage(user_id, usage)
-                    yield f"data: {json.dumps({'type': 'usage', 'usage': usage})}\n\n"
+                    # 获取模型名称
+                    provider_config = self.llm_service.get_provider_config(provider_id)
+                    model_name = provider_config.get('model_name', provider_id)
+                    self.save_token_usage(user_id, usage, model_name)
                 
                 # 如果是新会话且只有一条用户消息，更新主题
                 history_messages = memory_manager.get_history_messages_as_dict()
@@ -526,15 +386,11 @@ class ChatService:
                     self.update_session_title(session_id, user_id, title)
                     yield f"data: {json.dumps({'type': 'session_title', 'title': title})}\n\n"
                 
-                # 发送完成信号
-                yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                
-            except requests.exceptions.RequestException as e:
-                yield f"data: {json.dumps({'type': 'error', 'message': f'网络请求失败: {str(e)}'})}\n\n"
             except Exception as e:
                 print(f"Process chat stream with session error: {e}")
                 yield f"data: {json.dumps({'type': 'error', 'message': f'处理请求时出错: {str(e)}'})}\n\n"
         except Exception as e:
             print(f"Process chat stream with session outer error: {e}")
             yield f"data: {json.dumps({'type': 'error', 'message': f'处理请求时出错: {str(e)}'})}\n\n"
+    
 

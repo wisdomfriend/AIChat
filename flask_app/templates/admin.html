@@ -31,24 +31,6 @@
                 {% endif %}
             {% endwith %}
 
-            <!-- API Key 设置区域 -->
-            <div class="admin-section">
-                <h2>🔑 API Key 设置</h2>
-                <div class="api-key-card">
-                    <div class="form-group">
-                        <label for="api_key">DeepSeek API Key</label>
-                        <div class="input-group">
-                            <input type="password" id="api_key" class="form-control" value="{{ api_key }}" placeholder="请输入API Key">
-                            <button type="button" class="btn btn-primary" onclick="toggleApiKey()">显示/隐藏</button>
-                        </div>
-                        <small class="form-text">当前使用的API Key（已隐藏）</small>
-                    </div>
-                    <div class="form-group">
-                        <button type="button" class="btn btn-success" onclick="updateApiKey()">更新 API Key</button>
-                    </div>
-                </div>
-            </div>
-
             <!-- Token 使用统计区域 -->
             <div class="admin-section">
                 <h2>📊 Token 使用统计</h2>
@@ -184,49 +166,6 @@
         </footer>
     </div>
 
-    <script>
-        let apiKeyVisible = false;
-
-        function toggleApiKey() {
-            const input = document.getElementById('api_key');
-            apiKeyVisible = !apiKeyVisible;
-            input.type = apiKeyVisible ? 'text' : 'password';
-        }
-
-        async function updateApiKey() {
-            const apiKey = document.getElementById('api_key').value.trim();
-            
-            if (!apiKey) {
-                alert('请输入API Key');
-                return;
-            }
-
-            if (!confirm('确定要更新API Key吗？')) {
-                return;
-            }
-
-            try {
-                const response = await fetch('/admin/api_key', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ api_key: apiKey })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    alert('API Key更新成功！');
-                    location.reload();
-                } else {
-                    alert('更新失败: ' + result.message);
-                }
-            } catch (error) {
-                alert('请求失败: ' + error.message);
-            }
-        }
-    </script>
 </body>
 </html>
 

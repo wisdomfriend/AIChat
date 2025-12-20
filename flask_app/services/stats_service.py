@@ -101,8 +101,7 @@ class StatsService:
             ).limit(10).all()
             
             # 获取当前API key
-            api_key_obj = db.query(ApiKey).filter(ApiKey.is_active == True).first()
-            current_api_key = api_key_obj.api_key if api_key_obj else ''
+            # API Key 管理已移除，不再返回
             
             return {
                 'stats': {
@@ -131,8 +130,7 @@ class StatsService:
                         'count': total_stats.count or 0
                     }
                 },
-                'recent_usage': recent_usage,
-                'api_key': current_api_key
+                'recent_usage': recent_usage
             }
         except Exception as e:
             print(f"Get admin stats error: {e}")
@@ -143,8 +141,7 @@ class StatsService:
                     'month': {'prompt': 0, 'completion': 0, 'total': 0, 'count': 0},
                     'total': {'prompt': 0, 'completion': 0, 'total': 0, 'count': 0}
                 },
-                'recent_usage': [],
-                'api_key': ''
+                'recent_usage': []
             }
         finally:
             db.close()

@@ -50,6 +50,7 @@ class ChatSession(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False)
     title = Column(String(200), nullable=False)  # 会话主题
+    llm_provider = Column(String(50), default='deepseek')  # 使用的LLM提供商
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     updated_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'), onupdate=text('CURRENT_TIMESTAMP'))
 

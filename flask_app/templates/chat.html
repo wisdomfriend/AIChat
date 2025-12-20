@@ -94,6 +94,14 @@
 
             <div class="chat-input-area">
                 <div class="input-container">
+                    <!-- 模型选择器 -->
+                    <div class="model-selector-container">
+                        <label for="llmProviderSelect" class="model-selector-label">模型:</label>
+                        <select id="llmProviderSelect" class="model-selector" onchange="handleModelChange()">
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                    
                     <!-- 已选择的文件显示区域 -->
                     <div class="selected-files" id="selectedFiles"></div>
                     
@@ -144,6 +152,12 @@
         
         // 已选择的文件（存储上传后的文件信息）
         let selectedFiles = [];
+        
+        // 当前选择的模型提供商
+        let currentLlmProvider = null;
+        
+        // 可用的模型提供商列表
+        let availableProviders = [];
         
         // ==================== 文件上传相关 ====================
         
@@ -622,7 +636,8 @@
                     body: JSON.stringify({ 
                         message: message,
                         session_id: currentSessionId,
-                        file_ids: fileIds
+                        file_ids: fileIds,
+                        llm_provider: currentLlmProvider || undefined
                     })
                 });
 
@@ -738,6 +753,55 @@
             }
         }
 
+        // 加载可用的模型提供商列表
+        async function loadLlmProviders() {
+            try {
+                const response = await fetch('/api/llm/providers');
+                if (!response.ok) {
+                    throw new Error('获取模型列表失败');
+                }
+                const data = await response.json();
+                availableProviders = data.providers || [];
+                const defaultProvider = data.default || 'deepseek';
+                
+                // 渲染模型选择器
+                const select = document.getElementById('llmProviderSelect');
+                select.innerHTML = '';
+                
+                availableProviders.forEach(provider => {
+                    const option = document.createElement('option');
+                    option.value = provider.id;
+                    option.textContent = provider.name;
+                    if (provider.id === defaultProvider) {
+                        option.selected = true;
+                        currentLlmProvider = defaultProvider;
+                    }
+                    select.appendChild(option);
+                });
+                
+                // 如果没有当前选择的模型，使用默认模型
+                if (!currentLlmProvider && defaultProvider) {
+                    currentLlmProvider = defaultProvider;
+                }
+            } catch (error) {
+                console.error('Load LLM providers error:', error);
+                const select = document.getElementById('llmProviderSelect');
+                select.innerHTML = '<option value="">加载失败</option>';
+            }
+        }
+        
+        // 处理模型切换
+        function handleModelChange() {
+            const select = document.getElementById('llmProviderSelect');
+            const newProvider = select.value;
+            
+            if (newProvider && newProvider !== currentLlmProvider) {
+                currentLlmProvider = newProvider;
+                // 如果当前有会话，切换模型会更新会话的模型选择
+                // 不清空历史，继续使用当前对话历史
+            }
+        }
+        
         // 清空聊天，创建新会话
         function clearChat() {
             currentSessionId = null;
@@ -892,8 +956,9 @@
 
         // 页面加载完成后聚焦输入框并加载会话列表
         window.addEventListener('load', function() {
+            loadLlmProviders();  // 加载模型列表
             messageInput.focus();
-            loadSessions();
+            loadSessions();       // 加载会话列表
         });
     </script>
 </body>

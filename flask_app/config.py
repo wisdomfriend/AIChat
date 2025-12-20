@@ -59,8 +59,42 @@ class Config:
         self.LANGCHAIN_BUFFER_WINDOW_K = int(os.environ.get('LANGCHAIN_BUFFER_WINDOW_K', '10'))  # 固定窗口大小
         self.LANGCHAIN_TOKEN_BUFFER_LIMIT = int(os.environ.get('LANGCHAIN_TOKEN_BUFFER_LIMIT', '4000'))  # Token限制
         
+        # LLM 模型配置
+        self._init_llm_providers()
+        
         # 验证配置
         self._validate_config()
+    
+    def _init_llm_providers(self):
+        """初始化 LLM 模型提供商配置"""
+        # vLLM 配置（支持环境变量覆盖）
+        vllm_api_key = os.environ.get('VLLM_API_KEY', '')
+        vllm_base_url = os.environ.get('VLLM_BASE_URL', '')
+        
+        # 模型提供商配置
+        self.LLM_PROVIDERS = {
+            'deepseek': {
+                'type': 'openai_compatible',
+                'base_url': 'https://api.deepseek.com/v1',
+                'api_key': None,  # 从数据库读取
+                'model_name': 'deepseek-chat',
+                'display_name': 'DeepSeek',
+                'max_context_length': 32768,
+                'enabled': True
+            },
+            'vllm': {
+                'type': 'openai_compatible',
+                'base_url': vllm_base_url,
+                'api_key': vllm_api_key,
+                'model_name': 'ayenaspring-pro-001',
+                'display_name': 'Qwen3-235B-A22B-Instruct-2507-AWQ',
+                'max_context_length': 32768,
+                'enabled': True
+            }
+        }
+        
+        # 默认模型提供商
+        self.LLM_DEFAULT_PROVIDER = os.environ.get('LLM_DEFAULT_PROVIDER', 'deepseek')
     
     def _validate_config(self):
         """验证配置是否完整"""

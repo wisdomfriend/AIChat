@@ -29,5 +29,5 @@ COPY .env /app/.env
 EXPOSE 5000
 
 # 使用gunicorn启动应用（通过wsgi.py）
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "wsgi:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--worker-class", "gevent", "--worker-connections", "200", "wsgi:app"]
 

@@ -2,7 +2,8 @@
 import json
 from flask import Blueprint, Response, request, stream_with_context, jsonify
 from ..utils import get_current_user
-from ..services import ChatService, FileService
+from ..services import ChatService, FileService, LLMService
+from ..config import Config
 
 # 创建蓝图
 api_bp = Blueprint('api', __name__)
@@ -24,6 +25,7 @@ def api_chat():
         message = data.get('message', '').strip()
         session_id = data.get('session_id')  # 会话ID，如果为None则创建新会话
         file_ids = data.get('file_ids', [])  # 附加的文件ID列表
+        llm_provider = data.get('llm_provider')  # 模型提供商ID（可选）
         
         if not message:
             return Response(
@@ -41,7 +43,8 @@ def api_chat():
                     user['id'], 
                     session_id, 
                     message,
-                    file_ids
+                    file_ids,
+                    llm_provider
                 ):
                     yield chunk
             except Exception as e:
@@ -200,3 +203,26 @@ def get_supported_extensions():
         'extensions': extractor.get_supported_extensions(),
         'max_size_mb': 100
     })
+
+
+# ==================== LLM 模型相关 API ====================
+
+@api_bp.route('/llm/providers', methods=['GET'])
+def get_llm_providers():
+    """获取可用的 LLM 模型提供商列表"""
+    user = get_current_user()
+    if not user:
+        return jsonify({'error': '未登录'}), 401
+    
+    try:
+        config = Config()
+        llm_service = LLMService(config)
+        providers = llm_service.get_available_providers()
+        
+        return jsonify({
+            'providers': providers,
+            'default': config.LLM_DEFAULT_PROVIDER
+        })
+    except Exception as e:
+        print(f"Get LLM providers error: {e}")
+        return jsonify({'error': '获取模型列表失败'}), 500

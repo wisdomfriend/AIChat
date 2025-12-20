@@ -6,6 +6,7 @@ from ..database import get_session
 from ..models import ApiKey, TokenUsage, ChatSession, ChatMessage
 from ..config import Config
 from .file_service import FileService
+from .langchain_memory_manager import LangChainMemoryManager
 
 
 class ChatService:
@@ -380,7 +381,7 @@ class ChatService:
         return title
     
     def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None):
-        """处理带会话的流式聊天请求
+        """处理带会话的流式聊天请求（使用 LangChain Memory 管理对话历史）
         
         Args:
             user_id: 用户ID
@@ -402,60 +403,51 @@ class ChatService:
                 # 发送会话ID给前端
                 yield f"data: {json.dumps({'type': 'session_id', 'session_id': session_id})}\n\n"
             
-            # 获取历史消息
-            history_messages = self.get_session_messages(session_id, user_id, include_files=True)
-            if history_messages is None:
-                yield f"data: {json.dumps({'type': 'error', 'message': '会话不存在或无权限'})}\n\n"
-                return
-
-            # 只保留最近5对对话（即最近10条消息，user-assistant成对） 如果历史消息数量超过10条，只保留最后10条
-            if len(history_messages) > 10:
-                history_messages = history_messages[-10:]
+            # 验证会话权限
+            db = get_session()
+            try:
+                session = db.query(ChatSession).filter(
+                    ChatSession.id == session_id,
+                    ChatSession.user_id == user_id
+                ).first()
+                if not session:
+                    yield f"data: {json.dumps({'type': 'error', 'message': '会话不存在或无权限'})}\n\n"
+                    return
+            finally:
+                db.close()
             
-            # 处理文件上下文
-            file_context = ""
-            if file_ids:
-                file_service = FileService()
-                file_contexts = []
-                for file_id in file_ids:
-                    context = file_service.format_file_context(file_id, user_id)
-                    if context:
-                        file_contexts.append(context)
-                
-                if file_contexts:
-                    file_context = "\n\n---\n以下是用户上传的文件内容，请根据文件内容回答问题：\n\n" + "\n\n---\n\n".join(file_contexts) + "\n---\n\n"
+            # 创建 LangChain Memory Manager
+            memory_type = self.config.LANGCHAIN_MEMORY_TYPE
+            memory_kwargs = {}
             
-            # 构建消息列表（包含system提示词、历史消息和当前消息）
-            api_messages = []
+            if memory_type == 'buffer_window':
+                memory_kwargs['k'] = self.config.LANGCHAIN_BUFFER_WINDOW_K
+            elif memory_type == 'token_buffer':
+                memory_kwargs['max_token_limit'] = self.config.LANGCHAIN_TOKEN_BUFFER_LIMIT
+            elif memory_type == 'summary':
+                # Summary memory 需要 LLM，暂时不支持，回退到 buffer_window
+                memory_type = 'buffer_window'
+                memory_kwargs['k'] = self.config.LANGCHAIN_BUFFER_WINDOW_K
             
-            # 添加system角色提示词
+            memory_manager = LangChainMemoryManager(
+                session_id=session_id,
+                user_id=user_id,
+                memory_type=memory_type,
+                **memory_kwargs
+            )
+            
+            # 构建系统提示词
             system_prompt = "你是一个友好、专业且乐于助人的AI助手。你的目标是提供准确、有用和清晰的信息，帮助用户解决问题。请用简洁明了的语言回答，如果遇到不确定的问题，请诚实说明。"
-            if file_context:
+            if file_ids:
                 system_prompt += "\n\n用户可能会上传文件，当用户上传文件时，请仔细阅读文件内容并基于文件内容回答问题。"
-            api_messages.append({
-                'role': 'system',
-                'content': system_prompt
-            })
             
-            # 添加历史消息
-            for msg in history_messages:
-                api_messages.append({
-                    'role': msg['role'],
-                    'content': msg['content']
-                })
-            
-            # 构建用户消息（包含文件上下文）
-            user_content = file_context + message if file_context else message
-            
-            # 添加当前用户消息
-            api_messages.append({
-                'role': 'user',
-                'content': user_content
-            })
-            
-            # 保存用户消息（包含文件ID）
-            self.save_message(session_id, 'user', message, file_ids if file_ids else None)
-            
+            # 使用 LangChain Memory Manager 构建消息列表
+            api_messages = memory_manager.build_messages_for_api(
+                user_message=message,
+                file_ids=file_ids,
+                system_prompt=system_prompt
+            )
+
             # 获取API key
             api_key = self.get_active_api_key()
             if not api_key:
@@ -513,9 +505,14 @@ class ChatService:
                     except json.JSONDecodeError:
                         continue
                 
-                # 保存AI回复
+                # 保存AI回复和用户消息
                 if assistant_content:
-                    self.save_message(session_id, 'assistant', assistant_content)
+                    # 使用 LangChain Memory Manager 保存对话上下文
+                    # 注意：
+                    # 1. user_file_ids 只关联到用户消息，不会关联到 AI 消息
+                    # 2. save_context 会同时保存用户消息和AI消息
+                    # 3. 如果API调用失败，用户消息不会被保存
+                    memory_manager.save_context(message, assistant_content, user_file_ids=file_ids if file_ids else None)
                 
                 # 保存token使用记录
                 if usage:
@@ -523,7 +520,8 @@ class ChatService:
                     yield f"data: {json.dumps({'type': 'usage', 'usage': usage})}\n\n"
                 
                 # 如果是新会话且只有一条用户消息，更新主题
-                if history_messages == []:
+                history_messages = memory_manager.get_history_messages_as_dict()
+                if len(history_messages) <= 2:  # 只有当前这一轮对话（user + assistant）
                     title = self.generate_title_from_message(message)
                     self.update_session_title(session_id, user_id, title)
                     yield f"data: {json.dumps({'type': 'session_title', 'title': title})}\n\n"

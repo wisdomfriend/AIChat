@@ -3,6 +3,7 @@ import os
 import uuid
 import mimetypes
 from datetime import datetime
+from typing import List, Dict, Optional
 from ..database import get_session
 from ..models import UploadedFile
 from ..config import Config
@@ -428,7 +429,7 @@ class FileService:
         finally:
             db.close()
     
-    def format_file_context(self, file_id: int, user_id: int) -> str:
+    def format_file_context(self, file_id: int, user_id: int) -> Optional[str]:
         """
         格式化文件内容为上下文
         
@@ -437,7 +438,7 @@ class FileService:
             user_id: 用户ID
             
         Returns:
-            str: 格式化的文件上下文
+            str: 格式化的文件上下文，如果文件不存在或提取失败则返回None
         """
         db = get_session()
         try:
@@ -458,4 +459,84 @@ class FileService:
             return f"[文件: {file_obj.original_filename}]\n\n{file_obj.extracted_text}"
         finally:
             db.close()
+    
+    def get_file_contexts_from_ids(self, file_ids: List[int], user_id: int) -> str:
+        """
+        从文件ID列表获取格式化的文件上下文
+        
+        Args:
+            file_ids: 文件ID列表
+            user_id: 用户ID
+            
+        Returns:
+            格式化的文件上下文字符串
+        """
+        if not file_ids:
+            return ""
+        
+        contexts = []
+        for file_id in file_ids:
+            context = self.format_file_context(file_id, user_id)
+            if context:
+                contexts.append(context)
+        
+        if not contexts:
+            return ""
+        
+        return "\n\n【参考文件】\n请仔细阅读以下文件内容，然后回答问题。\n\n" + "\n\n---\n\n".join(contexts) + "\n\n【问题】\n\n"
+    
+    def enrich_history_messages_with_files(self, history_messages: List[Dict], user_id: int) -> List[Dict]:
+        """
+        丰富历史消息，将文件上下文添加到对应的消息中
+        
+        Args:
+            history_messages: 历史消息列表，格式为 [{'role': 'user', 'content': '...', 'files': [...]}, ...]
+                            注意：传入的消息列表已经由 LangChain Memory 进行了窗口限制，无需再次检查轮数
+            user_id: 用户ID
+            
+        Returns:
+            丰富后的历史消息列表
+        """
+        # 收集历史文件上下文
+        history_file_contexts = {}
+        
+        # 从后往前遍历
+        for idx in range(len(history_messages) - 1, -1, -1):
+            msg = history_messages[idx]
+            
+            # 只处理用户消息
+            if msg.get('role') != 'user':
+                continue
+            
+            # 检查是否有文件
+            files = msg.get('files', [])
+            if not files:
+                continue
+            
+            # 收集文件ID
+            file_ids = []
+            for file_info in files:
+                file_id = file_info.get('id')
+                if file_id:
+                    file_ids.append(file_id)
+            
+            if file_ids:
+                context = self.get_file_contexts_from_ids(file_ids, user_id)
+                if context:
+                    history_file_contexts[idx] = context
+        
+        # 丰富消息
+        enriched_messages = []
+        for idx, msg in enumerate(history_messages):
+            enriched_msg = msg.copy()
+            
+            # 如果是用户消息且有文件上下文，添加到content中
+            if idx in history_file_contexts:
+                file_context = history_file_contexts[idx]
+                # 将文件上下文添加到消息内容的前面
+                enriched_msg['content'] = file_context + enriched_msg.get('content', '')
+            
+            enriched_messages.append(enriched_msg)
+        
+        return enriched_messages
 

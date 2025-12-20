@@ -54,6 +54,11 @@ class Config:
         # Flask配置
         self.FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
         
+        # LangChain Memory 配置
+        self.LANGCHAIN_MEMORY_TYPE = os.environ.get('LANGCHAIN_MEMORY_TYPE', 'token_buffer')  # buffer_window, token_buffer, summary
+        self.LANGCHAIN_BUFFER_WINDOW_K = int(os.environ.get('LANGCHAIN_BUFFER_WINDOW_K', '10'))  # 固定窗口大小
+        self.LANGCHAIN_TOKEN_BUFFER_LIMIT = int(os.environ.get('LANGCHAIN_TOKEN_BUFFER_LIMIT', '4000'))  # Token限制
+        
         # 验证配置
         self._validate_config()
     

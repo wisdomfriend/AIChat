@@ -1,6 +1,6 @@
 """Flask应用工厂"""
 import logging
-from flask import Flask
+from flask import Flask, request
 from flask_cors import CORS
 from flasgger import Swagger
 import redis
@@ -64,12 +64,6 @@ def create_app(config_name='default'):
         Session(app)
         logger.info("使用默认文件系统Session")
     
-    # 启用CORS，允许发送 Cookie
-    # 允许 127.0.0.1 和 localhost（以防万一）
-    CORS(app, 
-         supports_credentials=True,
-         origins=["http://127.0.0.1:5000", "http://localhost:5000"])
-    
     # 初始化数据库
     try:
         init_db()
@@ -81,7 +75,8 @@ def create_app(config_name='default'):
     register_routes(app)
     
     # 初始化 Swagger 文档
-    # 注意：确保所有配置值都是有效的 JSON 类型，不能有 Python 的 None
+    # 注意：不设置 host 字段，让 Swagger UI 使用相对路径（自动使用当前页面的 host）
+    # 这样无论通过什么域名访问，都能正确工作，无需处理跨域问题
     swagger_config = {
         "headers": [],
         "specs": [
@@ -115,9 +110,10 @@ def create_app(config_name='default'):
                 "email": "wisdomfriend@126.com"
             }
         },
-        "host": "127.0.0.1:5000",
+        # 不设置 host，让 Swagger UI 使用相对路径（自动使用当前页面的 host）
+        # 这样无论通过 127.0.0.1:5000 还是 guopengfei.top 访问，都能正确工作
         "basePath": "/api",
-        "schemes": ["http", "https"],
+        "schemes": ["http", "https"],  # 支持两种协议
         "tags": [
             {
                 "name": "聊天",

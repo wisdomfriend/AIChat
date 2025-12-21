@@ -9,6 +9,7 @@ from ..config import Config
 from .file_service import FileService
 from .langchain_memory_manager import LangChainMemoryManager
 from .llm_service import LLMService
+from .baidu_search_service import BaiduSearchService
 
 
 class ChatService:
@@ -17,6 +18,7 @@ class ChatService:
     def __init__(self):
         self.config = Config()
         self.llm_service = LLMService(self.config)
+        self.search_service = BaiduSearchService(self.config)
     
     def save_token_usage(self, user_id, usage_data, model_name):
         """保存token使用记录
@@ -246,7 +248,7 @@ class ChatService:
             title += "..."
         return title
     
-    def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None, llm_provider=None):
+    def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None, llm_provider=None, use_web_search=False):
         """处理带会话的流式聊天请求（使用 LangChain Memory 管理对话历史）
         
         Args:
@@ -255,6 +257,7 @@ class ChatService:
             message: 用户消息
             file_ids: 附加的文件ID列表
             llm_provider: 模型提供商ID（可选，不传则使用会话保存的模型）
+            use_web_search: 是否启用联网搜索
             
         Yields:
             SSE格式的数据流
@@ -300,10 +303,35 @@ class ChatService:
                 user_id=user_id
             )
             
+            # 如果启用联网搜索，先执行搜索
+            original_message = message
+            if use_web_search:
+                try:
+                    # 发送搜索开始提示
+                    yield f"data: {json.dumps({'type': 'search_start', 'message': '正在搜索相关信息...'})}\n\n"
+                    
+                    # 执行搜索
+                    search_results = self.search_service.search(
+                        query=message,
+                        num_results=self.config.BAIDU_SEARCH_NUM_RESULTS
+                    )
+                    
+                    # 将搜索结果拼接到用户消息前
+                    message = f"{search_results}\n\n用户问题：{message}"
+                    
+                    # 发送搜索完成提示
+                    yield f"data: {json.dumps({'type': 'search_complete', 'message': '搜索完成'})}\n\n"
+                except Exception as e:
+                    print(f"Web search error: {e}")
+                    # 搜索失败不影响正常流程，继续使用原始消息
+                    yield f"data: {json.dumps({'type': 'search_error', 'message': f'搜索失败: {str(e)}'})}\n\n"
+            
             # 构建系统提示词
             system_prompt = "你是一个友好、专业且乐于助人的AI助手。你的目标是提供准确、有用和清晰的信息，帮助用户解决问题。请用简洁明了的语言回答，如果遇到不确定的问题，请诚实说明。"
             if file_ids:
                 system_prompt += "\n\n用户可能会上传文件，当用户上传文件时，请仔细阅读文件内容并基于文件内容回答问题。"
+            if use_web_search:
+                system_prompt += "\n\n用户启用了联网搜索功能，搜索结果已包含在用户消息中。请基于搜索结果和你的知识来回答问题，优先使用搜索结果中的最新信息。"
             
             # 使用 LangChain Memory Manager 构建消息列表（支持摘要和压缩）
             api_messages = memory_manager.build_messages_for_api(
@@ -314,8 +342,9 @@ class ChatService:
             )
             
             # 调用流式API（使用 LLMService）
+            # 注意：保存消息时使用原始消息，而不是包含搜索结果的消息
             yield from self._process_normal_chat(
-                api_messages, provider_id, memory_manager, message, file_ids, user_id, session_id
+                api_messages, provider_id, memory_manager, original_message, file_ids, user_id, session_id
             )
         except Exception as e:
             error_traceback = traceback.format_exc()

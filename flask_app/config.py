@@ -62,6 +62,8 @@ class Config:
         # LLM 模型配置
         self._init_llm_providers()
         
+        # 百度搜索配置
+        self._init_baidu_search_config()
         
         # 验证配置
         self._validate_config()
@@ -96,6 +98,14 @@ class Config:
         
         # 默认模型提供商
         self.LLM_DEFAULT_PROVIDER = os.environ.get('LLM_DEFAULT_PROVIDER', 'deepseek')
+    
+    def _init_baidu_search_config(self):
+        """初始化百度搜索配置"""
+        # 百度智能云搜索 API（可选，如果配置了则使用 API，否则使用爬取方式）
+        self.BAIDU_SEARCH_API_KEY = os.environ.get('BAIDU_SEARCH_API_KEY', '')
+        self.BAIDU_SEARCH_API_URL = os.environ.get('BAIDU_SEARCH_API_URL', '')
+        # 搜索结果显示数量（默认3条）
+        self.BAIDU_SEARCH_NUM_RESULTS = int(os.environ.get('BAIDU_SEARCH_NUM_RESULTS', '3'))
     
     def _validate_config(self):
         """验证配置是否完整"""

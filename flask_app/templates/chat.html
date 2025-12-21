@@ -115,14 +115,8 @@
                                 onkeydown="handleKeyDown(event)"
                             ></textarea>
                             <!-- 功能按钮组 -->
-                            <div class="input-actions" style="display: none;">
-                                <button id="deepThinkButton" class="action-button" onclick="toggleDeepThink()" title="深度思考" style="display: none;">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                    <span>深度思考</span>
-                                </button>
-                                <button id="webSearchButton" class="action-button" onclick="toggleWebSearch()" title="联网搜索" style="display: none;">
+                            <div class="input-actions">
+                                <button id="webSearchButton" class="action-button" onclick="toggleWebSearch()" title="联网搜索">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <circle cx="11" cy="11" r="8"></circle>
                                         <path d="m21 21-4.35-4.35"></path>
@@ -183,6 +177,8 @@
         // 可用的模型提供商列表
         let availableProviders = [];
         
+        // 功能开关状态
+        let useWebSearch = false;  // 联网搜索
         
         // ==================== 文件上传相关 ====================
         
@@ -713,7 +709,8 @@
                         message: message,
                         session_id: currentSessionId,
                         file_ids: fileIds,
-                        llm_provider: currentLlmProvider || undefined
+                        llm_provider: currentLlmProvider || undefined,
+                        use_web_search: useWebSearch  // 联网搜索
                     })
                 });
 
@@ -782,6 +779,15 @@
                                     }
                                     tokenInfo.textContent = '请求失败';
                                     // 不return，让流正常结束，finally块会执行
+                                } else if (data.type === 'search_start') {
+                                    // 搜索开始
+                                    tokenInfo.textContent = data.message || '正在搜索...';
+                                } else if (data.type === 'search_complete') {
+                                    // 搜索完成
+                                    tokenInfo.textContent = data.message || '搜索完成';
+                                } else if (data.type === 'search_error') {
+                                    // 搜索错误（不影响正常流程）
+                                    tokenInfo.textContent = data.message || '搜索失败';
                                 } else if (data.type === 'done') {
                                     // 流式响应完成
                                     if (usage) {
@@ -878,6 +884,17 @@
             }
         }
         
+        
+        // 切换联网搜索模式
+        function toggleWebSearch() {
+            useWebSearch = !useWebSearch;
+            const button = document.getElementById('webSearchButton');
+            if (useWebSearch) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
+            }
+        }
         
         // 清空聊天，创建新会话
         function clearChat() {

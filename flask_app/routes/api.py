@@ -26,6 +26,7 @@ def api_chat():
         session_id = data.get('session_id')  # 会话ID，如果为None则创建新会话
         file_ids = data.get('file_ids', [])  # 附加的文件ID列表
         llm_provider = data.get('llm_provider')  # 模型提供商ID（可选）
+        use_web_search = data.get('use_web_search', False)  # 是否启用联网搜索
         
         if not message:
             return Response(
@@ -54,7 +55,8 @@ def api_chat():
                     session_id, 
                     message,
                     file_ids,
-                    llm_provider
+                    llm_provider,
+                    use_web_search
                 ):
                     yield chunk
             except Exception as e:

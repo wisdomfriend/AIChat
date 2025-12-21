@@ -1,11 +1,13 @@
 # AIChat - Flask AI Chat Application | Docker Full-Stack Deployment Solution
 
+> **Language / 语言**: [English](README_EN.md) | [中文](README.md)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![English](https://img.shields.io/badge/English-README-blue.svg)](README_EN.md) [![中文](https://img.shields.io/badge/中文-README-red.svg)](README.md)
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.0.0-green.svg)](https://flask.palletsprojects.com/)
 [![LangChain](https://img.shields.io/badge/LangChain-1.2.0-orange.svg)](https://www.langchain.com/)
-[![Docker Compose](https://img.shields.io/badge/Docker_Compose-5.0.0-blue.svg)](https://docs.docker.com/compose/)
+[![Docker Compose](https://img.shields.io/badge/Docker_Compose-5.0.0-blue.svg)](https://docs.docker.com/compose/) 
 
 > **Build your own DeepSeek AI chat application in 5 minutes! Flask + LangChain with user registration, formula display, web search, file upload, and token statistics | One-click Docker deployment, ready to use out of the box**
 

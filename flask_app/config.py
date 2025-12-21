@@ -101,9 +101,6 @@ class Config:
     
     def _init_baidu_search_config(self):
         """初始化百度搜索配置"""
-        # 百度智能云搜索 API（可选，如果配置了则使用 API，否则使用爬取方式）
-        self.BAIDU_SEARCH_API_KEY = os.environ.get('BAIDU_SEARCH_API_KEY', '')
-        self.BAIDU_SEARCH_API_URL = os.environ.get('BAIDU_SEARCH_API_URL', '')
         # 搜索结果显示数量（默认3条）
         self.BAIDU_SEARCH_NUM_RESULTS = int(os.environ.get('BAIDU_SEARCH_NUM_RESULTS', '3'))
     

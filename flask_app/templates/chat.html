@@ -183,9 +183,6 @@
         // 可用的模型提供商列表
         let availableProviders = [];
         
-        // 功能开关状态
-        let useDeepThink = false;  // 深度思考（暂未实现）
-        let useWebSearch = false;  // 联网搜索（对应 use_agent）
         
         // ==================== 文件上传相关 ====================
         
@@ -716,8 +713,7 @@
                         message: message,
                         session_id: currentSessionId,
                         file_ids: fileIds,
-                        llm_provider: currentLlmProvider || undefined,
-                        use_agent: useWebSearch  // 联网搜索对应 Agent 模式
+                        llm_provider: currentLlmProvider || undefined
                     })
                 });
 
@@ -882,27 +878,6 @@
             }
         }
         
-        // 切换深度思考模式
-        function toggleDeepThink() {
-            useDeepThink = !useDeepThink;
-            const button = document.getElementById('deepThinkButton');
-            if (useDeepThink) {
-                button.classList.add('active');
-            } else {
-                button.classList.remove('active');
-            }
-        }
-        
-        // 切换联网搜索模式（Agent模式）
-        function toggleWebSearch() {
-            useWebSearch = !useWebSearch;
-            const button = document.getElementById('webSearchButton');
-            if (useWebSearch) {
-                button.classList.add('active');
-            } else {
-                button.classList.remove('active');
-            }
-        }
         
         // 清空聊天，创建新会话
         function clearChat() {

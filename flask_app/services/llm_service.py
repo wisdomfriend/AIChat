@@ -3,7 +3,7 @@ import json
 import asyncio
 import threading
 from typing import List, Dict, Optional, AsyncGenerator
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 import tiktoken
 

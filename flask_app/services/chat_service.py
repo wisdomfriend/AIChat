@@ -9,7 +9,6 @@ from ..config import Config
 from .file_service import FileService
 from .langchain_memory_manager import LangChainMemoryManager
 from .llm_service import LLMService
-from .agent_service import AgentService
 
 
 class ChatService:
@@ -18,7 +17,6 @@ class ChatService:
     def __init__(self):
         self.config = Config()
         self.llm_service = LLMService(self.config)
-        self.agent_service = AgentService(self.config, self.llm_service)
     
     def save_token_usage(self, user_id, usage_data, model_name):
         """保存token使用记录
@@ -248,7 +246,7 @@ class ChatService:
             title += "..."
         return title
     
-    def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None, llm_provider=None, use_agent=False):
+    def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None, llm_provider=None):
         """处理带会话的流式聊天请求（使用 LangChain Memory 管理对话历史）
         
         Args:
@@ -297,32 +295,9 @@ class ChatService:
                 db.close()
             
             # 创建 LangChain Memory Manager
-            memory_type = self.config.LANGCHAIN_MEMORY_TYPE
-            memory_kwargs = {}
-            
-            # 获取 LLM 实例（用于 token_buffer memory）
-            llm = None
-            if memory_type == 'token_buffer' or memory_type == 'summary':
-                try:
-                    llm = self.llm_service.get_llm(provider_id)
-                    if memory_type == 'token_buffer':
-                        memory_kwargs['llm'] = llm
-                        memory_kwargs['max_token_limit'] = self.config.LANGCHAIN_TOKEN_BUFFER_LIMIT
-                    elif memory_type == 'summary':
-                        memory_kwargs['llm'] = llm
-                except Exception as e:
-                    print(f"Warning: 无法创建 LLM 实例用于 memory: {e}，回退到 buffer_window")
-                    memory_type = 'buffer_window'
-                    memory_kwargs['k'] = self.config.LANGCHAIN_BUFFER_WINDOW_K
-            
-            if memory_type == 'buffer_window':
-                memory_kwargs['k'] = self.config.LANGCHAIN_BUFFER_WINDOW_K
-            
             memory_manager = LangChainMemoryManager(
                 session_id=session_id,
-                user_id=user_id,
-                memory_type=memory_type,
-                **memory_kwargs
+                user_id=user_id
             )
             
             # 构建系统提示词
@@ -330,40 +305,18 @@ class ChatService:
             if file_ids:
                 system_prompt += "\n\n用户可能会上传文件，当用户上传文件时，请仔细阅读文件内容并基于文件内容回答问题。"
             
-            # 判断是否使用 Agent 模式
-            if use_agent:
-                if self.config.AGENT_ENABLED:
-                    print(f"[Agent] 使用 Agent 模式处理消息: {message[:50]}...")
-                    # 使用 Agent 模式
-                    yield from self._process_agent_chat(
-                        memory_manager, message, file_ids, provider_id, user_id, session_id
-                    )
-                else:
-                    print(f"[Agent] Agent 功能未启用，回退到普通模式。请设置环境变量 AGENT_ENABLED=true")
-                    # Agent 未启用，回退到普通模式
-                    api_messages = memory_manager.build_messages_for_api(
-                        user_message=message,
-                        file_ids=file_ids,
-                        system_prompt=system_prompt,
-                        llm_provider=provider_id
-                    )
-                    yield from self._process_normal_chat(
-                        api_messages, provider_id, memory_manager, message, file_ids, user_id, session_id
-                    )
-            else:
-                # 使用普通 LLM 模式
-                # 使用 LangChain Memory Manager 构建消息列表（支持摘要和压缩）
-                api_messages = memory_manager.build_messages_for_api(
-                    user_message=message,
-                    file_ids=file_ids,
-                    system_prompt=system_prompt,
-                    llm_provider=provider_id
-                )
-                
-                # 调用流式API（使用 LLMService）
-                yield from self._process_normal_chat(
-                    api_messages, provider_id, memory_manager, message, file_ids, user_id, session_id
-                )
+            # 使用 LangChain Memory Manager 构建消息列表（支持摘要和压缩）
+            api_messages = memory_manager.build_messages_for_api(
+                user_message=message,
+                file_ids=file_ids,
+                system_prompt=system_prompt,
+                llm_provider=provider_id
+            )
+            
+            # 调用流式API（使用 LLMService）
+            yield from self._process_normal_chat(
+                api_messages, provider_id, memory_manager, message, file_ids, user_id, session_id
+            )
         except Exception as e:
             error_traceback = traceback.format_exc()
             print(f"Process chat stream with session outer error: {e}")
@@ -427,80 +380,3 @@ class ChatService:
             print(f"Process normal chat error: {e}")
             yield f"data: {json.dumps({'type': 'error', 'message': f'处理请求时出错: {str(e)}'})}\n\n"
     
-    def _process_agent_chat(self, memory_manager, message, file_ids, provider_id, user_id, session_id):
-        """处理 Agent 模式聊天"""
-        try:
-            # 获取历史消息
-            history_messages = memory_manager.get_history_messages_as_dict(include_files=True)
-            
-            # 构建消息列表（包含历史消息和当前消息）
-            api_messages = []
-            for msg in history_messages:
-                if msg.get('role') != 'system':  # Agent 模式下不需要系统消息
-                    api_messages.append({
-                        'role': msg['role'],
-                        'content': msg['content']
-                    })
-            
-            # 添加当前用户消息
-            file_context = memory_manager.get_current_file_context(file_ids) if file_ids else ""
-            user_content = file_context + message if file_context else message
-            api_messages.append({
-                'role': 'user',
-                'content': user_content
-            })
-            
-            # 使用 Agent 服务进行流式聊天
-            usage = None
-            assistant_content = ''
-            
-            # 运行异步流式生成器
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                async_gen = self.agent_service.stream_agent_chat(api_messages, provider_id)
-                
-                while True:
-                    try:
-                        chunk = loop.run_until_complete(async_gen.__anext__())
-                        yield chunk
-                        
-                        # 解析 chunk 提取内容
-                        if chunk.startswith('data: '):
-                            try:
-                                data_str = chunk[6:].strip()
-                                if data_str:
-                                    data = json.loads(data_str)
-                                    if data.get('type') == 'content':
-                                        assistant_content += data.get('content', '')
-                                    elif data.get('type') == 'usage':
-                                        usage = data.get('usage')
-                            except (json.JSONDecodeError, KeyError):
-                                pass
-                    except StopAsyncIteration:
-                        break
-            finally:
-                loop.close()
-            
-            # 保存AI回复和用户消息
-            if assistant_content:
-                memory_manager.save_context(message, assistant_content, user_file_ids=file_ids if file_ids else None)
-            
-            # 保存token使用记录（Agent模式下可能没有usage信息）
-            if usage:
-                provider_config = self.llm_service.get_provider_config(provider_id)
-                model_name = provider_config.get('model_name', provider_id)
-                self.save_token_usage(user_id, usage, model_name)
-            
-            # 如果是新会话且只有一条用户消息，更新主题
-            history_messages = memory_manager.get_history_messages_as_dict()
-            if len(history_messages) <= 2:
-                title = self.generate_title_from_message(message)
-                self.update_session_title(session_id, user_id, title)
-                yield f"data: {json.dumps({'type': 'session_title', 'title': title})}\n\n"
-                
-        except Exception as e:
-            print(f"Process agent chat error: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': f'Agent处理请求时出错: {str(e)}'})}\n\n"
-    
-

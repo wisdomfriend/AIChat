@@ -1,28 +1,25 @@
-"""LangChain Memory 管理器 - 支持多种 Memory 类型"""
-from typing import List, Dict, Optional, Literal, Tuple
+"""LangChain Memory 管理器 - 简化版，只用于上下文压缩"""
+from typing import List, Dict, Optional, Tuple
 
-# LangChain 0.3+ 版本导入
-from langchain.memory import (
-    ConversationBufferWindowMemory,
-    ConversationTokenBufferMemory,
-    ConversationSummaryMemory
-)
-
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import HumanMessage, AIMessage
 from .memory_store import MySQLChatMessageHistory
 from .file_service import FileService
 from ..config import Config
 
 
 class LangChainMemoryManager:
-    """LangChain Memory 管理器，支持多种 Memory 类型"""
+    """LangChain Memory 管理器（简化版）
+    
+    只保留以下功能：
+    1. 从数据库读取历史消息
+    2. 保存对话上下文到数据库
+    3. 上下文压缩（使用 predict_new_summary）
+    """
     
     def __init__(
         self,
         session_id: int,
-        user_id: int,
-        memory_type: Literal['buffer_window', 'token_buffer', 'summary'] = 'token_buffer',
-        **memory_kwargs
+        user_id: int
     ):
         """
         初始化
@@ -30,116 +27,18 @@ class LangChainMemoryManager:
         Args:
             session_id: 会话ID
             user_id: 用户ID
-            memory_type: Memory类型
-                - 'buffer_window': 固定窗口大小
-                - 'token_buffer': 基于token限制
-                - 'summary': 摘要模式
-            **memory_kwargs: Memory的额外参数
-                - buffer_window: {'k': 10}  # 保留最近k轮对话
-                - token_buffer: {'max_token_limit': 4000}  # 最大token数
-                - summary: {'llm': ...}  # 用于摘要的LLM
         """
         self.session_id = session_id
         self.user_id = user_id
-        self.memory_type = memory_type
         
         # 配置对象
         self.config = Config()
         
-        # 创建消息历史存储
+        # 创建消息历史存储（用于保存到数据库）
         self.message_history = MySQLChatMessageHistory(session_id, user_id)
-        
-        # 创建 Memory 实例
-        self.memory = self._create_memory(memory_type, memory_kwargs)
         
         # 文件服务（用于处理文件上下文）
         self.file_service = FileService()
-    
-    def _create_memory(self, memory_type: str, memory_kwargs: dict):
-        """创建 Memory 实例"""
-        if memory_type == 'buffer_window':
-            k = memory_kwargs.get('k', 10)  # 默认保留最近10条消息
-            # 返回 ConversationBufferWindowMemory 实例
-            # 
-            # 返回对象的使用方式：
-            # 1. memory.load_memory_variables({}) 
-            #    返回格式: Dict[str, List[BaseMessage]]
-            #    例如: {'history': [HumanMessage(...), AIMessage(...), ...]}
-            # 
-            # 2. 消息对象类型：
-            #    - HumanMessage(content="用户消息内容")  # 用户消息
-            #    - AIMessage(content="AI回复内容")        # AI消息
-            #    - SystemMessage(content="系统消息")     # 系统消息
-            # 
-            # 3. 每个消息对象都有 content 属性，可通过 msg.content 获取消息内容
-            # 
-            # 4. 窗口限制说明（重要）：
-            #    - k 参数是按消息轮数计算的
-            #    - 1 轮对话 = 1 条用户消息 + 1 条 AI 回复 = 2 条消息
-            #    - SystemMessage 也会被计入 k 的计数（如果历史中存在）
-            #    - 注意：当前代码中 system_prompt 不会保存到数据库
-            return ConversationBufferWindowMemory(
-                chat_memory=self.message_history,
-                k=k,
-                return_messages=True
-            )
-        
-        elif memory_type == 'token_buffer':
-            max_token_limit = memory_kwargs.get('max_token_limit', 4000)
-            # Token buffer memory 需要 LLM 来计算 token
-            # 注意：当前代码中未传入 llm 参数，所以会回退到 buffer_window 模式
-            # 如果需要使用 token_buffer 模式，需要：
-            # 1. 创建 LLM 实例（如 ChatOpenAI 或自定义的 DeepSeek LLM）
-            # 2. 在 memory_kwargs 中传入 llm 参数
-            # 3. ConversationTokenBufferMemory 内部使用 LLM 的 tokenizer 来计算 token 数量
-            # 如果 DeepSeek 使用不同的 tokenizer，可能需要自定义 LLM 类
-            llm = memory_kwargs.get('llm')
-            if llm is None:
-                # 如果没有提供 LLM，回退到 buffer_window
-                print(f"Warning: Token buffer memory requires LLM, but llm is None. Falling back to buffer_window mode.")
-                return ConversationBufferWindowMemory(
-                    chat_memory=self.message_history,
-                    k=10,
-                    return_messages=True
-                )
-            
-            try:
-                return ConversationTokenBufferMemory(
-                    chat_memory=self.message_history,
-                    max_token_limit=max_token_limit,
-                    llm=llm,
-                    return_messages=True
-                )
-            except Exception as e:
-                print(f"Warning: Token buffer memory creation failed: {e}, falling back to buffer window")
-                return ConversationBufferWindowMemory(
-                    chat_memory=self.message_history,
-                    k=10,
-                    return_messages=True
-                )
-        
-        elif memory_type == 'summary':
-            llm = memory_kwargs.get('llm')
-            if llm is None:
-                raise ValueError("Summary memory requires an LLM instance")
-            
-            return ConversationSummaryMemory(
-                llm=llm,
-                chat_memory=self.message_history,
-                return_messages=True
-            )
-        
-        else:
-            raise ValueError(f"Unsupported memory type: {memory_type}")
-    
-    def load_memory_variables(self) -> Dict[str, List[BaseMessage]]:
-        """加载内存变量（历史消息）"""
-        return self.memory.load_memory_variables({})
-    
-    def get_history_messages(self) -> List[BaseMessage]:
-        """获取历史消息列表"""
-        memory_vars = self.load_memory_variables()
-        return memory_vars.get('history', [])
     
     def get_history_messages_as_dict(self, include_files: bool = True) -> List[Dict]:
         """
@@ -211,40 +110,25 @@ class LangChainMemoryManager:
     
     def save_context(self, user_input: str, ai_output: str, user_file_ids: List[int] = None):
         """
-        保存对话上下文
+        保存对话上下文到数据库
         
         Args:
             user_input: 用户输入
             ai_output: AI输出
-            user_file_ids: 用户消息关联的文件ID列表（方案2：通过消息元数据传递）
-        
-        注意：
-            - 用户消息和AI消息会先保存到数据库
-            - 然后调用 LangChain Memory 的 save_context 更新内存（add_message 只更新内存，不保存数据库）
+            user_file_ids: 用户消息关联的文件ID列表
         """
         from langchain_core.messages import HumanMessage, AIMessage
         
-        # 1. 保存用户消息到数据库（带 file_ids）
+        # 保存用户消息到数据库（带 file_ids）
         user_message = HumanMessage(
             content=user_input,
             additional_kwargs={'file_ids': user_file_ids} if user_file_ids else {}
         )
         self.message_history.save_message_to_database(user_message)
         
-        # 2. 保存AI消息到数据库
+        # 保存AI消息到数据库
         ai_message = AIMessage(content=ai_output)
         self.message_history.save_message_to_database(ai_message)
-        
-        # 3. 调用 LangChain Memory 的 save_context 更新内存
-        # add_message 方法只更新内存，不保存数据库，所以不会重复保存
-        self.memory.save_context(
-            {'input': user_input},
-            {'output': ai_output}
-        )
-    
-    def clear(self):
-        """清空内存（仅清空内存，不删除数据库记录）"""
-        self.memory.clear()
     
     def enrich_with_file_context(
         self,

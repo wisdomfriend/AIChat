@@ -1,0 +1,18 @@
+# LangChain 升级后的版本要求
+# 基于 LangChain 1.2.0 的依赖要求
+
+# LangChain 主包
+langchain==1.2.0
+
+# LangChain 核心包（LangChain 1.2.0 要求 >=1.2.1,<2.0.0）
+# 使用最新兼容版本 1.2.4
+langchain-core>=1.2.1,<2.0.0
+
+# LangChain 社区包（包含 ChatOpenAI 等）
+# 检查最新版本，建议使用 0.4.x 或最新版本
+langchain-community>=0.3.27
+
+# LangChain 文本分割器
+# 检查最新版本，建议使用 1.x 或最新版本
+langchain-text-splitters>=0.3.11
+

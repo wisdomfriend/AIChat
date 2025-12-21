@@ -26,10 +26,21 @@ def api_chat():
         session_id = data.get('session_id')  # 会话ID，如果为None则创建新会话
         file_ids = data.get('file_ids', [])  # 附加的文件ID列表
         llm_provider = data.get('llm_provider')  # 模型提供商ID（可选）
+        use_agent = data.get('use_agent', False)  # 是否使用Agent模式（可选，默认False）
         
         if not message:
             return Response(
                 'data: {"type":"error","message":"消息不能为空"}\n\n',
+                mimetype='text/event-stream',
+                status=400
+            )
+        
+        # 检查消息长度限制（64KB = 65536 字节）
+        MAX_MESSAGE_SIZE = 64 * 1024  # 64KB
+        message_size = len(message.encode('utf-8'))
+        if message_size > MAX_MESSAGE_SIZE:
+            return Response(
+                f'data: {{"type":"error","message":"消息过长，当前大小：{message_size} 字节，最大允许：{MAX_MESSAGE_SIZE} 字节（64KB）"}}\n\n',
                 mimetype='text/event-stream',
                 status=400
             )
@@ -44,7 +55,8 @@ def api_chat():
                     session_id, 
                     message,
                     file_ids,
-                    llm_provider
+                    llm_provider,
+                    use_agent
                 ):
                     yield chunk
             except Exception as e:

@@ -106,13 +106,32 @@
                     <div class="selected-files" id="selectedFiles"></div>
                     
                     <div class="input-wrapper">
-                        <textarea 
-                            id="messageInput" 
-                            class="message-input" 
-                            placeholder="输入消息..." 
-                            rows="1"
-                            onkeydown="handleKeyDown(event)"
-                        ></textarea>
+                        <div class="input-content">
+                            <textarea 
+                                id="messageInput" 
+                                class="message-input" 
+                                placeholder="输入消息..." 
+                                rows="1"
+                                onkeydown="handleKeyDown(event)"
+                            ></textarea>
+                            <!-- 功能按钮组 -->
+                            <div class="input-actions" style="display: none;">
+                                <button id="deepThinkButton" class="action-button" onclick="toggleDeepThink()" title="深度思考" style="display: none;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    <span>深度思考</span>
+                                </button>
+                                <button id="webSearchButton" class="action-button" onclick="toggleWebSearch()" title="联网搜索" style="display: none;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <path d="m21 21-4.35-4.35"></path>
+                                        <circle cx="11" cy="11" r="3" fill="currentColor" opacity="0.3"></circle>
+                                    </svg>
+                                    <span>联网搜索</span>
+                                </button>
+                            </div>
+                        </div>
                         <!-- 文件上传按钮 -->
                         <button id="uploadButton" class="upload-button" onclick="triggerFileUpload()" title="上传文件">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -128,6 +147,7 @@
                     <div class="input-footer">
                         <span class="token-info" id="tokenInfo"></span>
                         <span class="input-hint">按 Enter 发送，Shift + Enter 换行 | 支持上传文件进行对话</span>
+                        <span class="char-count" id="charCount">0 / 64 KB</span>
                     </div>
                 </div>
                 
@@ -143,9 +163,13 @@
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
         const tokenInfo = document.getElementById('tokenInfo');
+        const charCount = document.getElementById('charCount');
         const sessionsList = document.getElementById('sessionsList');
         const selectedFilesContainer = document.getElementById('selectedFiles');
         const fileInput = document.getElementById('fileInput');
+        
+        // 消息长度限制：64KB (65536 字节)
+        const MAX_MESSAGE_SIZE = 64 * 1024; // 64KB in bytes
         
         // 当前会话ID
         let currentSessionId = null;
@@ -158,6 +182,10 @@
         
         // 可用的模型提供商列表
         let availableProviders = [];
+        
+        // 功能开关状态
+        let useDeepThink = false;  // 深度思考（暂未实现）
+        let useWebSearch = false;  // 联网搜索（对应 use_agent）
         
         // ==================== 文件上传相关 ====================
         
@@ -465,11 +493,52 @@
             });
         }
 
-        // 自动调整输入框高度
+        // 计算文本的 UTF-8 字节大小
+        function getTextSizeInBytes(text) {
+            return new TextEncoder().encode(text).length;
+        }
+        
+        // 格式化字节大小为可读格式
+        function formatBytes(bytes) {
+            if (bytes < 1024) {
+                return bytes + ' B';
+            } else if (bytes < 1024 * 1024) {
+                return (bytes / 1024).toFixed(2) + ' KB';
+            } else {
+                return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            }
+        }
+        
+        // 更新字符计数显示
+        function updateCharCount() {
+            const text = messageInput.value;
+            const sizeInBytes = getTextSizeInBytes(text);
+            const maxSizeFormatted = formatBytes(MAX_MESSAGE_SIZE);
+            const currentSizeFormatted = formatBytes(sizeInBytes);
+            
+            charCount.textContent = `${currentSizeFormatted} / ${maxSizeFormatted}`;
+            
+            // 如果超过限制，显示警告样式
+            if (sizeInBytes > MAX_MESSAGE_SIZE) {
+                charCount.style.color = '#ef4444'; // 红色
+                charCount.style.fontWeight = 'bold';
+            } else if (sizeInBytes > MAX_MESSAGE_SIZE * 0.9) {
+                charCount.style.color = '#f59e0b'; // 橙色（接近限制）
+            } else {
+                charCount.style.color = ''; // 默认颜色
+                charCount.style.fontWeight = '';
+            }
+        }
+        
+        // 自动调整输入框高度并更新字符计数
         messageInput.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+            updateCharCount();
         });
+        
+        // 页面加载时初始化字符计数
+        updateCharCount();
 
         // 处理回车键
         function handleKeyDown(event) {
@@ -592,6 +661,15 @@
             if (!message) {
                 return;
             }
+            
+            // 检查消息长度限制（64KB）
+            const messageSize = getTextSizeInBytes(message);
+            if (messageSize > MAX_MESSAGE_SIZE) {
+                const maxSizeFormatted = formatBytes(MAX_MESSAGE_SIZE);
+                const currentSizeFormatted = formatBytes(messageSize);
+                alert(`消息过长！当前大小：${currentSizeFormatted}，最大允许：${maxSizeFormatted}\n\n请缩短消息内容后重试。`);
+                return;
+            }
 
             // 禁用输入和按钮
             messageInput.disabled = true;
@@ -612,6 +690,7 @@
             addMessage(message, true, null, null, displayFiles.length > 0 ? displayFiles : null);
             messageInput.value = '';
             messageInput.style.height = 'auto';
+            updateCharCount(); // 重置字符计数
             
             // 清除已选择的文件
             clearSelectedFiles();
@@ -637,7 +716,8 @@
                         message: message,
                         session_id: currentSessionId,
                         file_ids: fileIds,
-                        llm_provider: currentLlmProvider || undefined
+                        llm_provider: currentLlmProvider || undefined,
+                        use_agent: useWebSearch  // 联网搜索对应 Agent 模式
                     })
                 });
 
@@ -799,6 +879,28 @@
                 currentLlmProvider = newProvider;
                 // 如果当前有会话，切换模型会更新会话的模型选择
                 // 不清空历史，继续使用当前对话历史
+            }
+        }
+        
+        // 切换深度思考模式
+        function toggleDeepThink() {
+            useDeepThink = !useDeepThink;
+            const button = document.getElementById('deepThinkButton');
+            if (useDeepThink) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
+            }
+        }
+        
+        // 切换联网搜索模式（Agent模式）
+        function toggleWebSearch() {
+            useWebSearch = !useWebSearch;
+            const button = document.getElementById('webSearchButton');
+            if (useWebSearch) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
             }
         }
         

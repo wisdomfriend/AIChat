@@ -59,8 +59,16 @@ class Config:
         self.LANGCHAIN_BUFFER_WINDOW_K = int(os.environ.get('LANGCHAIN_BUFFER_WINDOW_K', '10'))  # 固定窗口大小
         self.LANGCHAIN_TOKEN_BUFFER_LIMIT = int(os.environ.get('LANGCHAIN_TOKEN_BUFFER_LIMIT', '4000'))  # Token限制
         
+        # 上下文压缩配置
+        self.LANGCHAIN_COMPRESSION_ENABLED = os.environ.get('LANGCHAIN_COMPRESSION_ENABLED', 'true').lower() == 'true'  # 是否启用压缩
+        self.LANGCHAIN_COMPRESSION_THRESHOLD = float(os.environ.get('LANGCHAIN_COMPRESSION_THRESHOLD', '0.8'))  # 压缩触发阈值（80%）
+        self.LANGCHAIN_COMPRESSION_KEEP_ROUNDS = int(os.environ.get('LANGCHAIN_COMPRESSION_KEEP_ROUNDS', '10'))  # 保留最近N轮对话
+        
         # LLM 模型配置
         self._init_llm_providers()
+        
+        # Agent 和工具配置
+        self._init_agent_config()
         
         # 验证配置
         self._validate_config()
@@ -95,6 +103,19 @@ class Config:
         
         # 默认模型提供商
         self.LLM_DEFAULT_PROVIDER = os.environ.get('LLM_DEFAULT_PROVIDER', 'deepseek')
+    
+    def _init_agent_config(self):
+        """初始化 Agent 和工具配置"""
+        # 百度搜索API配置（可选）
+        # 如果设置了 BAIDU_SEARCH_API_KEY，将使用API接口
+        # 否则使用简化的网页搜索
+        self.BAIDU_SEARCH_API_KEY = os.environ.get('BAIDU_SEARCH_API_KEY', None)
+        self.BAIDU_SEARCH_API_URL = os.environ.get('BAIDU_SEARCH_API_URL', None)
+        
+        # Agent 配置
+        self.AGENT_ENABLED = os.environ.get('AGENT_ENABLED', 'true').lower() == 'true'
+        self.AGENT_MAX_ITERATIONS = int(os.environ.get('AGENT_MAX_ITERATIONS', '5'))
+        self.AGENT_MAX_EXECUTION_TIME = int(os.environ.get('AGENT_MAX_EXECUTION_TIME', '60'))
     
     def _validate_config(self):
         """验证配置是否完整"""

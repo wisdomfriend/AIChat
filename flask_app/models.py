@@ -1,5 +1,5 @@
 """数据库模型定义"""
-from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text
+from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, Text, text
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -62,7 +62,7 @@ class ChatMessage(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, nullable=False)  # 关联的会话ID
     role = Column(String(20), nullable=False)  # 'user' 或 'assistant'
-    content = Column(String(10000), nullable=False)  # 消息内容
+    content = Column(Text, nullable=False)  # 消息内容（最大 64KB）
     file_ids = Column(String(500))  # 关联的文件ID列表，JSON格式 如 "[1,2,3]"
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
 
@@ -85,3 +85,18 @@ class UploadedFile(Base):
     error_message = Column(String(500))                          # 错误信息
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     updated_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'), onupdate=text('CURRENT_TIMESTAMP'))
+
+
+class ConversationSummary(Base):
+    """对话摘要模型"""
+    __tablename__ = "conversation_summaries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, nullable=False)  # 会话ID
+    message_count = Column(Integer, nullable=False)  # 覆盖的消息轮数（从第0轮开始）
+    summary_content = Column(Text, nullable=False)  # 摘要内容
+    token_count = Column(Integer)  # 摘要的token数
+    created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
+    
+    # 外键约束
+    # FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE

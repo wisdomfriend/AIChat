@@ -1,6 +1,6 @@
 # AIChat - Flask AI 聊天应用 | Docker 全栈部署方案
 
-> 🌐 **Language / 语言**: [English](README_EN.md) | [中文](README.md)
+> **Language / 语言**: [English](README_EN.md) | [中文](README.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![English](https://img.shields.io/badge/English-README-blue.svg)](README_EN.md) [![中文](https://img.shields.io/badge/中文-README-red.svg)](README.md)

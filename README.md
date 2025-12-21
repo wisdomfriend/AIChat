@@ -1,6 +1,7 @@
 # AIChat - Flask AI 聊天应用 | Docker 全栈部署方案
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![English](https://img.shields.io/badge/English-README-blue.svg)](README_EN.md) [![中文](https://img.shields.io/badge/中文-README-red.svg)](README.md)
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.0.0-green.svg)](https://flask.palletsprojects.com/)
 [![LangChain](https://img.shields.io/badge/LangChain-1.2.0-orange.svg)](https://www.langchain.com/)
@@ -13,6 +14,7 @@
 **AIChat** 是一个开源的 AI 聊天 Web 应用。项目使用 **Flask** 作为后端框架，集成了 **DeepSeek API** 提供 AI 聊天服务。通过 **Docker Compose** 实现一键部署。
 
 ![主页面](./images/main_page.png)
+![swagger页面](./images/swagger.png)
 ###  核心特性
 
 -  **AI聊天功能**：集成 DeepSeek API，支持实时对话交互，上传文件，支持公式/代码/markdown的格式化显示

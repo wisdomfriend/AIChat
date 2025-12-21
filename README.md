@@ -1,8 +1,9 @@
 # AIChat - Flask AI 聊天应用 | Docker 全栈部署方案
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.0.0-green.svg)](https://flask.palletsprojects.com/)
+[![LangChain](https://img.shields.io/badge/LangChain-1.2.0-orange.svg)](https://www.langchain.com/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 
 > **5分钟搭建你自己的DeepSeek AI 聊天应用！Flask 全栈项目：用户注册认证 + 流式响应 + Token 统计 | Docker 一键部署，开箱即用**
@@ -27,7 +28,7 @@
 
 ### ️ 技术标签
 
-`Flask` `Python` `Docker` `DeepSeek API` 
+`Flask` `Python` `Docker` `DeepSeek API` `LangChain`
 
 ## 技术栈
 

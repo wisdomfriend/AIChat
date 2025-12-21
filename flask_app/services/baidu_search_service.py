@@ -11,9 +11,6 @@ class BaiduSearchService:
     
     def __init__(self, config: Config = None):
         self.config = config or Config()
-        self.api_key = self.config.BAIDU_SEARCH_API_KEY
-        self.api_url = self.config.BAIDU_SEARCH_API_URL
-        self.use_api = bool(self.api_key and self.api_url)
         # 使用 Session 来保持 Cookie，模拟浏览器行为
         self.session = requests.Session()
         # 初始化时访问一次首页获取 Cookie
@@ -31,12 +28,8 @@ class BaiduSearchService:
             格式化的搜索结果文本
         """
         try:
-            if self.use_api:
-                # 使用百度智能云 API（如果配置了）
-                results = self._search_with_api(query, num_results)
-            else:
-                # 使用爬取方式（免费）
-                results = self._search_with_scraping(query, num_results)
+            # 使用爬取方式搜索
+            results = self._search_with_scraping(query, num_results)
             
             if not results:
                 return "未找到相关搜索结果。"
@@ -57,7 +50,25 @@ class BaiduSearchService:
             return f"搜索过程中出现错误: {str(e)}"
     
     def _init_session(self):
-        """初始化会话，访问首页获取 Cookie"""
+        """
+        初始化会话，访问首页获取 Cookie
+        
+        工作原理：
+        1. 向百度首页发送 GET 请求
+        2. 百度服务器返回响应，并在响应头中设置 Cookie（Set-Cookie）
+        3. requests.Session 自动保存这些 Cookie 到 self.session.cookies
+        4. 后续所有使用 self.session 的请求都会自动携带这些 Cookie
+        
+        常见的百度 Cookie：
+        - BAIDUID: 百度用户唯一标识
+        - BIDUPSID: 百度 ID
+        - PSTM: 首次访问时间戳
+        - H_PS_PSSID: 会话 ID
+        
+        这样做的好处：
+        - 模拟真实浏览器行为，降低被反爬虫系统识别的风险
+        - 服务器可能根据 Cookie 判断是否为正常访问
+        """
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -68,16 +79,16 @@ class BaiduSearchService:
                 'Upgrade-Insecure-Requests': '1',
             }
             # 访问首页获取 Cookie
-            self.session.get('https://www.baidu.com', headers=headers, timeout=10)
+            # 服务器返回的 Cookie 会被自动保存到 self.session.cookies 中
+            response = self.session.get('https://www.baidu.com', headers=headers, timeout=10)
+            
+            # 可选：打印获取到的 Cookie（用于调试）
+            # print(f"获取到的 Cookie 数量: {len(self.session.cookies)}")
+            # for cookie in self.session.cookies:
+            #     print(f"  {cookie.name} = {cookie.value[:50]}...")
+            
         except Exception as e:
             print(f"Init session error: {e}")
-    
-    def _search_with_api(self, query: str, num_results: int) -> List[Dict]:
-        """使用百度智能云 API 搜索"""
-        # TODO: 实现百度智能云 API 调用
-        # 需要根据百度智能云的实际 API 文档实现
-        # 这里先返回空，等用户配置好 API 后再实现
-        return []
     
     def _search_with_scraping(self, query: str, num_results: int) -> List[Dict]:
         """使用百度网页端搜索（桌面端HTML解析）"""

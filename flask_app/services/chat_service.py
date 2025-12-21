@@ -249,7 +249,7 @@ class ChatService:
         return title
     
     def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None, llm_provider=None, use_web_search=False):
-        """处理带会话的流式聊天请求（使用 LangChain Memory 管理对话历史）
+        """处理带会话的流式聊天请求
         
         Args:
             user_id: 用户ID

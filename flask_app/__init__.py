@@ -2,6 +2,7 @@
 import logging
 from flask import Flask
 from flask_cors import CORS
+from flasgger import Swagger
 import redis
 from .config import create_config
 from .database import init_db
@@ -45,21 +46,29 @@ def create_app(config_name='default'):
     # 配置Flask-Session - 使用自定义接口修复session_id bytes问题
     if app.config.get('SESSION_REDIS'):
         # 如果Redis连接成功，使用自定义的Redis Session接口
+        # 设置 SameSite=None 以便 Swagger UI 能够发送 Cookie（开发环境）
+        app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # 同域请求时允许发送 Cookie
+        # 确保 SESSION_COOKIE_NAME 已设置（Flask 默认是 'session'）
+        if 'SESSION_COOKIE_NAME' not in app.config:
+            app.config['SESSION_COOKIE_NAME'] = 'session'
         app.session_interface = FixedRedisSessionInterface(
             redis=app.config['SESSION_REDIS'],
             key_prefix=app.config.get('SESSION_KEY_PREFIX', 'session:'),
             use_signer=app.config.get('SESSION_USE_SIGNER', True),
             permanent=app.config.get('SESSION_PERMANENT', True)
         )
-        logger.info("使用自定义Redis Session接口")
+        logger.info(f"使用自定义Redis Session接口，Cookie名称: {app.config['SESSION_COOKIE_NAME']}")
     else:
         # 如果Redis连接失败，使用默认的文件系统Session
         from flask_session import Session
         Session(app)
         logger.info("使用默认文件系统Session")
     
-    # 启用CORS
-    CORS(app)
+    # 启用CORS，允许发送 Cookie
+    # 允许 127.0.0.1 和 localhost（以防万一）
+    CORS(app, 
+         supports_credentials=True,
+         origins=["http://127.0.0.1:5000", "http://localhost:5000"])
     
     # 初始化数据库
     try:
@@ -70,6 +79,70 @@ def create_app(config_name='default'):
     
     # 注册路由
     register_routes(app)
+    
+    # 初始化 Swagger 文档
+    # 注意：确保所有配置值都是有效的 JSON 类型，不能有 Python 的 None
+    swagger_config = {
+        "headers": [],
+        "specs": [
+            {
+                "endpoint": "apispec",
+                "route": "/apispec.json",
+                "rule_filter": lambda rule: True,
+                "model_filter": lambda tag: True,
+            }
+        ],
+        "static_url_path": "/flasgger_static",
+        "swagger_ui": True,
+        "specs_route": "/api-docs"
+    }
+    
+    swagger_template = {
+        "swagger": "2.0",
+        "info": {
+            "title": "AIChat API 文档",
+            "description": """
+            AI 聊天应用的 API 接口文档，支持聊天、文件管理、会话管理等功能。
+            
+            **重要提示：**
+            - 所有 API 接口都需要用户登录认证
+            - 请在浏览器中先访问登录页面（/login）完成登录
+            - 登录后，浏览器的 Cookie 会自动发送到 API 请求中
+            - 如果遇到 401 未登录错误，请先登录系统，然后刷新此页面
+            """,
+            "version": "1.0.0",
+            "contact": {
+                "email": "wisdomfriend@126.com"
+            }
+        },
+        "host": "127.0.0.1:5000",
+        "basePath": "/api",
+        "schemes": ["http", "https"],
+        "tags": [
+            {
+                "name": "聊天",
+                "description": "AI 聊天相关接口"
+            },
+            {
+                "name": "会话",
+                "description": "会话管理相关接口"
+            },
+            {
+                "name": "文件",
+                "description": "文件上传和管理相关接口"
+            },
+            {
+                "name": "模型",
+                "description": "LLM 模型提供商相关接口"
+            }
+        ]
+    }
+    
+    # 初始化 Swagger
+    # 注意：Flasgger 0.9.7.1 版本可能存在将 Python None 输出到 JavaScript 的问题
+    # 这是已知问题，不影响功能，但会在浏览器控制台显示错误
+    Swagger(app, config=swagger_config, template=swagger_template)
+    logger.info("Swagger 文档已初始化，访问 /api-docs 查看 API 文档")
     
     return app
 

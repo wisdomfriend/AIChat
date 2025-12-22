@@ -100,6 +100,14 @@
                         <select id="llmProviderSelect" class="model-selector" onchange="handleModelChange()">
                             <option value="">加载中...</option>
                         </select>
+                        <button id="webSearchButton" class="action-button" onclick="toggleWebSearch()" title="联网搜索">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                                <circle cx="11" cy="11" r="3" fill="currentColor" opacity="0.3"></circle>
+                            </svg>
+                            <span>联网搜索</span>
+                        </button>
                     </div>
                     
                     <!-- 已选择的文件显示区域 -->
@@ -114,17 +122,6 @@
                                 rows="1"
                                 onkeydown="handleKeyDown(event)"
                             ></textarea>
-                            <!-- 功能按钮组 -->
-                            <div class="input-actions">
-                                <button id="webSearchButton" class="action-button" onclick="toggleWebSearch()" title="联网搜索">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <circle cx="11" cy="11" r="8"></circle>
-                                        <path d="m21 21-4.35-4.35"></path>
-                                        <circle cx="11" cy="11" r="3" fill="currentColor" opacity="0.3"></circle>
-                                    </svg>
-                                    <span>联网搜索</span>
-                                </button>
-                            </div>
                         </div>
                         <!-- 文件上传按钮 -->
                         <button id="uploadButton" class="upload-button" onclick="triggerFileUpload()" title="上传文件">

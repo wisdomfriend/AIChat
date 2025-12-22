@@ -8,6 +8,7 @@ from .config import create_config
 from .database import init_db
 from .routes import register_routes
 from .session_interface import FixedRedisSessionInterface
+from .utils import get_static_file_hash
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,53 @@ def create_app(config_name='default'):
         logger.error(f"数据库初始化失败: {str(e)}", exc_info=True)
         # 不抛出异常，允许应用启动，但会在实际使用时失败
     
-    # 注册路由
+    # 注册模板过滤器：用于生成带哈希的静态文件URL
+    @app.template_filter('static_hash')
+    def static_hash_filter(filename):
+        """模板过滤器：为静态文件添加哈希值"""
+        hashed_filename = get_static_file_hash(filename)
+        # 直接返回带哈希的文件路径
+        return f"/static/{hashed_filename}"
+    
+    # 使用 before_request 拦截静态文件请求，处理带哈希的文件
+    @app.before_request
+    def handle_hashed_static():
+        """拦截并处理带哈希的静态文件请求"""
+        import os
+        import re
+        from flask import request, send_from_directory, abort, current_app
+        
+        # 只处理 /static/ 路径的请求
+        if not request.path.startswith('/static/'):
+            return None
+        
+        # 提取文件路径（去掉 /static/ 前缀）
+        file_path = request.path[8:]  # 去掉 '/static/' (8个字符)
+        
+        # 检查是否是带哈希的文件名格式：path/to/file.hash.ext
+        pattern = r'^(.+)\.([a-f0-9]{8})(\.[^.]+)$'
+        match = re.match(pattern, file_path)
+        
+        if match:
+            # 找到匹配，提取原始文件名
+            base_path = match.group(1)
+            file_ext = match.group(3)
+            original_filename = base_path + file_ext
+            
+            # 验证哈希值是否正确
+            expected_hashed = get_static_file_hash(original_filename)
+            if file_path == expected_hashed:
+                # 哈希值匹配，返回原始文件
+                return send_from_directory(current_app.static_folder, original_filename)
+            else:
+                # 哈希值不匹配，可能是旧缓存，返回404
+                logger.warning(f"静态文件哈希不匹配: 请求={file_path}, 期望={expected_hashed}")
+                abort(404)
+        
+        # 不是带哈希的文件，继续默认处理流程
+        return None
+    
+    # 注册路由（必须在静态文件路由之后）
     register_routes(app)
     
     # 初始化 Swagger 文档

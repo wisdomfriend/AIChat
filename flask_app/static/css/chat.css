@@ -719,6 +719,7 @@ body {
     gap: 10px;
     margin-bottom: 12px;
     padding: 0 4px;
+    flex-wrap: wrap;
 }
 
 .model-selector-label {
@@ -730,6 +731,7 @@ body {
 .model-selector {
     flex: 1;
     max-width: 200px;
+    height: 36px;
     padding: 8px 12px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -739,6 +741,7 @@ body {
     cursor: pointer;
     outline: none;
     transition: all 0.3s ease;
+    box-sizing: border-box;
 }
 
 .model-selector:hover {
@@ -904,6 +907,7 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
+    height: 36px;
     padding: 6px 12px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -914,6 +918,7 @@ body {
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
+    box-sizing: border-box;
 }
 
 .action-button:hover {

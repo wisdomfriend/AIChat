@@ -79,10 +79,10 @@ class Config:
             'deepseek': {
                 'type': 'openai_compatible',
                 'base_url': 'https://api.deepseek.com/v1',
-                'api_key': None,  # 从数据库读取
+                'api_key': None,  # 从数据库读取 TODO 需要统一改为从数据库读取
                 'model_name': 'deepseek-chat',
-                'display_name': 'DeepSeek',
-                'max_context_length': 32768,
+                'display_name': 'deepseek-chat',
+                'max_context_length': 128000,
                 'enabled': True
             },
             'vllm': {
@@ -91,7 +91,16 @@ class Config:
                 'api_key': vllm_api_key,
                 'model_name': 'ayenaspring-pro-001',
                 'display_name': 'Qwen3-235B-A22B-Instruct-2507-AWQ',
-                'max_context_length': 32768,
+                'max_context_length': 128000,
+                'enabled': True
+            },
+            'openai': {
+                'type': 'openai_compatible',
+                'base_url': 'https://api.openai.com/v1',
+                'api_key': os.environ.get('OPENAI_API_KEY', ''),
+                'model_name': 'gpt-5.2',
+                'display_name': 'gpt-5.2',
+                'max_context_length': 128000,  # gpt-5-pro 支持 128k 上下文
                 'enabled': True
             }
         }

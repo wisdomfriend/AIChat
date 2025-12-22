@@ -108,6 +108,7 @@
                             </svg>
                             <span>联网搜索</span>
                         </button>
+                        <span id="imageSupportWarning" class="image-support-warning" style="display: none;"></span>
                     </div>
                     
                     <!-- 已选择的文件显示区域 -->
@@ -124,11 +125,18 @@
                             ></textarea>
                         </div>
                         <!-- 文件上传按钮 -->
-                        <button id="uploadButton" class="upload-button" onclick="triggerFileUpload()" title="上传文件">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
+                        <div class="upload-button-wrapper">
+                            <button id="uploadButton" class="upload-button" onclick="triggerFileUpload()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <div class="upload-tooltip">
+                                <div class="upload-tooltip-content">
+                                    <div class="upload-tooltip-text">最多{{ max_files_per_request }}个,每个{{ (max_file_size / (1024 * 1024)) | int }} MB,支持各类文档和图片,对于不支持图片的模型,会忽略图片</div>
+                                </div>
+                            </div>
+                        </div>
                         <button id="sendButton" class="send-button" onclick="sendMessage()" title="发送 (Enter)">
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                                 <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -137,14 +145,14 @@
                     </div>
                     <div class="input-footer">
                         <span class="token-info" id="tokenInfo"></span>
-                        <span class="input-hint">按 Enter 发送，Shift + Enter 换行 | 支持上传文件进行对话</span>
+                        <span class="input-hint">按 Enter 发送，Shift + Enter 换行 | 支持上传文件进行对话 | 仅gpt-5.2支持图片</span>
                         <span class="char-count" id="charCount">0 / 64 KB</span>
                     </div>
                 </div>
                 
                 <!-- 隐藏的文件输入 -->
                 <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(event)" 
-                       accept=".txt,.md,.py,.json,.js,.ts,.html,.css,.xml,.yaml,.yml,.ini,.conf,.cfg,.log,.csv,.sql,.sh,.bat,.java,.c,.cpp,.h,.go,.rs,.rb,.php,.pdf,.docx,.xlsx">
+                       accept=".txt,.md,.py,.json,.js,.ts,.html,.css,.xml,.yaml,.yml,.ini,.conf,.cfg,.log,.csv,.sql,.sh,.bat,.java,.c,.cpp,.h,.go,.rs,.rb,.php,.pdf,.docx,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg" multiple>
             </div>
         </main>
     </div>
@@ -162,6 +170,10 @@
         // 消息长度限制：64KB (65536 字节)
         const MAX_MESSAGE_SIZE = 64 * 1024; // 64KB in bytes
         
+        // 文件上传限制（从配置读取）
+        const MAX_FILE_SIZE = {{ max_file_size }}; // 字节
+        const MAX_FILES_PER_REQUEST = {{ max_files_per_request }};
+        
         // 当前会话ID
         let currentSessionId = null;
         
@@ -173,6 +185,9 @@
         
         // 可用的模型提供商列表
         let availableProviders = [];
+        
+        // 当前模型是否支持图片
+        let currentModelSupportsImages = false;
         
         // 功能开关状态
         let useWebSearch = false;  // 联网搜索
@@ -189,31 +204,65 @@
             const files = event.target.files;
             if (!files || files.length === 0) return;
             
+            // 检查文件数量限制（统一限制，不区分图片和文本）
+            const totalFiles = selectedFiles.length + files.length;
+            if (totalFiles > MAX_FILES_PER_REQUEST) {
+                alert(`文件数量过多，一次最多支持${MAX_FILES_PER_REQUEST}个文件（当前已选择${selectedFiles.length}个，本次选择${files.length}个）`);
+                fileInput.value = '';
+                return;
+            }
+            
+            // 检查文件大小并添加到选择列表（不上传）
             for (const file of files) {
-                await uploadFile(file);
+                const maxSizeMB = Math.floor(MAX_FILE_SIZE / (1024 * 1024));
+                
+                if (file.size > MAX_FILE_SIZE) {
+                    alert(`文件 "${file.name}" 过大，最大支持 ${maxSizeMB}MB`);
+                    continue;
+                }
+                
+                const isImage = isImageFile(file.name);
+                const tempId = 'temp_' + Date.now() + '_' + Math.random();
+                
+                // 为图片创建预览URL
+                let previewUrl = null;
+                if (isImage) {
+                    previewUrl = URL.createObjectURL(file);
+                }
+                
+                // 添加到选择列表（未上传状态）
+                addFileToSelection({
+                    id: tempId,
+                    original_filename: file.name,
+                    file_size: file.size,
+                    is_image: isImage,
+                    file: file,  // 保存文件对象，用于后续上传
+                    previewUrl: previewUrl,  // 图片预览URL
+                    uploaded: false  // 标记为未上传
+                });
             }
             
             // 清空input，允许重复选择同一文件
             fileInput.value = '';
         }
         
+        // 检查是否为图片文件
+        function isImageFile(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext);
+        }
+        
         // 上传单个文件
-        async function uploadFile(file) {
-            // 检查文件大小
-            const maxSize = 100 * 1024 * 1024; // 100MB
-            if (file.size > maxSize) {
-                alert(`文件 "${file.name}" 过大，最大支持 100MB`);
-                return;
+        async function uploadFile(file, tempId) {
+            // 找到对应的文件信息
+            const fileInfo = selectedFiles.find(f => f.id === tempId);
+            if (!fileInfo) {
+                throw new Error('文件信息未找到');
             }
             
-            // 显示上传中状态
-            const tempId = 'temp_' + Date.now();
-            addFileToSelection({
-                id: tempId,
-                original_filename: file.name,
-                file_size: file.size,
-                uploading: true
-            });
+            // 标记为上传中
+            fileInfo.uploading = true;
+            renderSelectedFiles();
             
             try {
                 const formData = new FormData();
@@ -226,18 +275,28 @@
                 
                 const result = await response.json();
                 
-                // 移除临时状态
-                removeFileFromSelection(tempId);
-                
                 if (result.success) {
-                    // 添加上传成功的文件
-                    addFileToSelection({
-                        id: result.file_id,
-                        original_filename: result.filename,
-                        file_size: result.file_size,
-                        extraction_status: result.extraction_status,
-                        text_length: result.text_length
-                    });
+                    // 更新文件信息
+                    fileInfo.id = result.file_id;
+                    fileInfo.original_filename = result.filename;
+                    fileInfo.file_size = result.file_size;
+                    fileInfo.extraction_status = result.extraction_status;
+                    fileInfo.text_length = result.text_length;
+                    fileInfo.is_image = result.is_image || false;
+                    fileInfo.file_extension = result.file_extension || '';
+                    fileInfo.uploaded = true;
+                    fileInfo.uploading = false;
+                    
+                    // 如果是图片，释放预览URL
+                    if (fileInfo.previewUrl) {
+                        URL.revokeObjectURL(fileInfo.previewUrl);
+                        fileInfo.previewUrl = null;
+                    }
+                    
+                    // 移除文件对象（已上传，不再需要）
+                    delete fileInfo.file;
+                    
+                    renderSelectedFiles();
                     
                     // 显示状态提示
                     if (result.extraction_status === 'too_large') {
@@ -248,12 +307,15 @@
                         tokenInfo.textContent = `✓ 已上传: ${result.filename}`;
                     }
                 } else {
-                    alert(`上传失败: ${result.error}`);
+                    fileInfo.uploading = false;
+                    renderSelectedFiles();
+                    throw new Error(result.error || '上传失败');
                 }
             } catch (error) {
-                removeFileFromSelection(tempId);
+                fileInfo.uploading = false;
+                renderSelectedFiles();
                 console.error('Upload error:', error);
-                alert(`上传失败: ${error.message}`);
+                throw error;
             }
         }
         
@@ -269,9 +331,45 @@
         }
         
         // 从已选择列表移除文件
-        function removeFileFromSelection(fileId) {
+        async function removeFileFromSelection(fileId) {
+            const file = selectedFiles.find(f => f.id === fileId);
+            if (!file) return;
+            
+            // 如果是图片且有预览URL，释放URL
+            if (file.previewUrl) {
+                URL.revokeObjectURL(file.previewUrl);
+            }
+            
+            // 如果文件已上传，调用删除API
+            if (file.uploaded && file.id && !file.id.startsWith('temp_')) {
+                try {
+                    await fetch(`/api/files/${file.id}`, {
+                        method: 'DELETE'
+                    });
+                } catch (error) {
+                    console.error('Delete file error:', error);
+                }
+            }
+            
+            // 从列表中移除
             selectedFiles = selectedFiles.filter(f => f.id !== fileId);
             renderSelectedFiles();
+        }
+        
+        // 更新图片支持警告
+        function updateImageSupportWarning() {
+            const warningElement = document.getElementById('imageSupportWarning');
+            if (!warningElement) return;
+            
+            // 检查是否有图片文件且当前模型不支持图片
+            const hasImages = selectedFiles.some(f => f.is_image && !f.uploading);
+            
+            if (hasImages && !currentModelSupportsImages) {
+                warningElement.textContent = '当前模型不支持图片,仅gpt5.2支持图片,对话会忽略图片';
+                warningElement.style.display = 'inline-block';
+            } else {
+                warningElement.style.display = 'none';
+            }
         }
         
         // 渲染已选择的文件
@@ -279,6 +377,7 @@
             if (selectedFiles.length === 0) {
                 selectedFilesContainer.innerHTML = '';
                 selectedFilesContainer.style.display = 'none';
+                updateImageSupportWarning();
                 return;
             }
             
@@ -286,9 +385,33 @@
             selectedFilesContainer.innerHTML = selectedFiles.map(file => {
                 const sizeStr = formatFileSize(file.file_size);
                 const statusIcon = file.uploading ? '⏳' : 
-                                   file.extraction_status === 'success' ? '✓' :
-                                   file.extraction_status === 'too_large' ? '⚠️' : '❌';
+                                   file.uploaded ? (file.extraction_status === 'success' ? '✓' :
+                                   file.extraction_status === 'too_large' ? '⚠️' : '❌') : '';
                 
+                // 如果是图片，显示缩略图（不显示文件名）
+                if (file.is_image) {
+                    const imageUrl = file.uploaded ? `/api/files/${file.id}/image` : file.previewUrl;
+                    return `
+                        <div class="selected-file selected-image ${file.uploading ? 'uploading' : ''}" data-file-id="${file.id}">
+                            <div class="image-preview">
+                                <img src="${imageUrl}" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="image-placeholder" style="display: none;">
+                                    <div class="file-icon">🖼️</div>
+                                </div>
+                            </div>
+                            ${file.uploading ? '' : `
+                                <button class="file-remove" onclick="removeFileFromSelection('${file.id}')" title="移除">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </button>
+                            `}
+                        </div>
+                    `;
+                }
+                
+                // 文本文件，显示文件名
                 return `
                     <div class="selected-file ${file.uploading ? 'uploading' : ''}" data-file-id="${file.id}">
                         <div class="file-icon">${getFileIcon(file.original_filename)}</div>
@@ -307,6 +430,9 @@
                     </div>
                 `;
             }).join('');
+            
+            // 更新图片支持警告
+            updateImageSupportWarning();
         }
         
         // 获取文件图标
@@ -338,6 +464,12 @@
         
         // 清除所有已选择的文件
         function clearSelectedFiles() {
+            // 释放所有图片预览URL
+            selectedFiles.forEach(file => {
+                if (file.previewUrl) {
+                    URL.revokeObjectURL(file.previewUrl);
+                }
+            });
             selectedFiles = [];
             renderSelectedFiles();
         }
@@ -558,13 +690,29 @@
                 if (files && files.length > 0 && isUser) {
                     const filesDiv = document.createElement('div');
                     filesDiv.className = 'message-files';
-                    filesDiv.innerHTML = files.map(f => `
-                        <div class="message-file">
-                            <span class="file-icon">${getFileIcon(f.filename)}</span>
-                            <span class="file-name">${escapeHtml(f.filename)}</span>
-                            <span class="file-size">${formatFileSize(f.file_size)}</span>
-                        </div>
-                    `).join('');
+                    filesDiv.innerHTML = files.map(f => {
+                        // 如果是图片，显示图片预览
+                        if (f.is_image && f.id) {
+                            const imageUrl = `/api/files/${f.id}/image`;
+                            return `
+                                <div class="message-file message-image">
+                                    <img src="${imageUrl}" alt="${escapeHtml(f.filename)}" class="message-image-preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="image-fallback" style="display: none;">
+                                        <span class="file-icon">🖼️</span>
+                                        <span class="file-name">${escapeHtml(f.filename)}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        // 文本文件
+                        return `
+                            <div class="message-file">
+                                <span class="file-icon">${getFileIcon(f.filename)}</span>
+                                <span class="file-name">${escapeHtml(f.filename)}</span>
+                                <span class="file-size">${formatFileSize(f.file_size)}</span>
+                            </div>
+                        `;
+                    }).join('');
                     messageWrapper.appendChild(filesDiv);
                 }
                 
@@ -666,14 +814,32 @@
             sendButton.disabled = true;
             sendButton.classList.add('disabled');
 
+            // 先上传所有未上传的文件
+            const filesToUpload = selectedFiles.filter(f => !f.uploaded && f.file);
+            for (const fileInfo of filesToUpload) {
+                try {
+                    await uploadFile(fileInfo.file, fileInfo.id);
+                } catch (error) {
+                    console.error('Upload file error:', error);
+                    alert(`文件 "${fileInfo.original_filename}" 上传失败: ${error.message}`);
+                    // 恢复输入和按钮
+                    messageInput.disabled = false;
+                    sendButton.disabled = false;
+                    sendButton.classList.remove('disabled');
+                    return;
+                }
+            }
+
             // 获取当前选择的文件（过滤掉上传中的）
-            const currentFiles = selectedFiles.filter(f => !f.uploading);
+            const currentFiles = selectedFiles.filter(f => !f.uploading && f.uploaded);
             const fileIds = currentFiles.map(f => f.id);
             
-            // 准备显示的文件信息
+            // 准备显示的文件信息（包含完整信息，用于显示图片）
             const displayFiles = currentFiles.map(f => ({
+                id: f.id,
                 filename: f.original_filename,
-                file_size: f.file_size
+                file_size: f.file_size,
+                is_image: f.is_image || false
             }));
 
             // 添加用户消息（包含文件）
@@ -854,6 +1020,7 @@
                     if (provider.id === defaultProvider) {
                         option.selected = true;
                         currentLlmProvider = defaultProvider;
+                        currentModelSupportsImages = provider.supports_images || false;
                     }
                     select.appendChild(option);
                 });
@@ -861,7 +1028,14 @@
                 // 如果没有当前选择的模型，使用默认模型
                 if (!currentLlmProvider && defaultProvider) {
                     currentLlmProvider = defaultProvider;
+                    const defaultProviderData = availableProviders.find(p => p.id === defaultProvider);
+                    if (defaultProviderData) {
+                        currentModelSupportsImages = defaultProviderData.supports_images || false;
+                    }
                 }
+                
+                // 更新图片支持警告
+                updateImageSupportWarning();
             } catch (error) {
                 console.error('Load LLM providers error:', error);
                 const select = document.getElementById('llmProviderSelect');
@@ -876,6 +1050,15 @@
             
             if (newProvider && newProvider !== currentLlmProvider) {
                 currentLlmProvider = newProvider;
+                // 更新当前模型是否支持图片
+                const providerData = availableProviders.find(p => p.id === newProvider);
+                if (providerData) {
+                    currentModelSupportsImages = providerData.supports_images || false;
+                } else {
+                    currentModelSupportsImages = false;
+                }
+                // 更新图片支持警告
+                updateImageSupportWarning();
                 // 如果当前有会话，切换模型会更新会话的模型选择
                 // 不清空历史，继续使用当前对话历史
             }

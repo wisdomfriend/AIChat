@@ -130,6 +130,13 @@ class LLMService:
                 raise ValueError("未配置 vLLM API Key")
             return api_key
         
+        # OpenAI 从配置读取
+        elif provider_id == 'openai':
+            api_key = provider_config.get('api_key')
+            if not api_key:
+                raise ValueError("未配置 OpenAI API Key")
+            return api_key
+        
         else:
             raise ValueError(f"未知的模型提供商: {provider_id}")
     

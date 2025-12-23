@@ -970,7 +970,7 @@
                                     if (!aiMessageDiv) {
                                         aiMessageDiv = addMessage('', false);
                                     }
-                                    const thinkContent = `<div class="agent-think">🤔 ${data.content || ''}</div>`;
+                                    const thinkContent = `<div class="agent-think">${data.content || ''}</div>`;
                                     aiMessageContent += thinkContent;
                                     addMessage(aiMessageContent, false, null, aiMessageDiv);
                                     tokenInfo.textContent = '正在思考...';
@@ -979,7 +979,7 @@
                                     if (!aiMessageDiv) {
                                         aiMessageDiv = addMessage('', false);
                                     }
-                                    const actionContent = `<div class="agent-action">⚡ ${data.content || ''}</div>`;
+                                    const actionContent = `<div class="agent-action">${data.content || ''}</div>`;
                                     aiMessageContent += actionContent;
                                     addMessage(aiMessageContent, false, null, aiMessageDiv);
                                     tokenInfo.textContent = '正在执行...';
@@ -988,7 +988,7 @@
                                     if (!aiMessageDiv) {
                                         aiMessageDiv = addMessage('', false);
                                     }
-                                    const obsContent = `<div class="agent-observation">👁️ ${data.content || ''}</div>`;
+                                    const obsContent = `<div class="agent-observation">${data.content || ''}</div>`;
                                     aiMessageContent += obsContent;
                                     addMessage(aiMessageContent, false, null, aiMessageDiv);
                                     tokenInfo.textContent = '观察结果...';
@@ -997,7 +997,7 @@
                                     if (!aiMessageDiv) {
                                         aiMessageDiv = addMessage('', false);
                                     }
-                                    const planContent = `<div class="agent-plan">📋 规划：${data.content || ''}</div>`;
+                                    const planContent = `<div class="agent-plan">规划：${data.content || ''}</div>`;
                                     aiMessageContent += planContent;
                                     addMessage(aiMessageContent, false, null, aiMessageDiv);
                                     tokenInfo.textContent = '规划完成，正在执行...';
@@ -1007,7 +1007,7 @@
                                         aiMessageDiv = addMessage('', false);
                                     }
                                     const stepNum = data.step_num || '';
-                                    const stepContent = `<div class="agent-plan-step">📝 ${data.content || ''}</div>`;
+                                    const stepContent = `<div class="agent-plan-step">${data.content || ''}</div>`;
                                     aiMessageContent += stepContent;
                                     addMessage(aiMessageContent, false, null, aiMessageDiv);
                                     tokenInfo.textContent = `规划步骤 ${stepNum}...`;
@@ -1017,7 +1017,7 @@
                                         aiMessageDiv = addMessage('', false);
                                     }
                                     const stepNum = data.step_num || '';
-                                    const stepContent = `<div class="agent-execute-step">⚙️ ${data.content || ''}</div>`;
+                                    const stepContent = `<div class="agent-execute-step">${data.content || ''}</div>`;
                                     aiMessageContent += stepContent;
                                     addMessage(aiMessageContent, false, null, aiMessageDiv);
                                     tokenInfo.textContent = `执行步骤 ${stepNum}...`;

@@ -167,11 +167,11 @@ def api_chat():
               type: string
               description: 模型提供商ID（可选）
               example: "deepseek"
-            use_web_search:
-              type: boolean
-              description: 是否启用联网搜索
-              default: false
-              example: false
+            agent_mode:
+              type: string
+              description: Agent 模式，可选值：normal（普通聊天）、web_search（联网搜索）、react（推理与行动）、plan_execute（规划与执行）
+              default: "normal"
+              example: "react"
     responses:
       200:
         description: 流式响应成功
@@ -223,7 +223,7 @@ def api_chat():
         session_id = data.get('session_id')  # 会话ID，如果为None则创建新会话
         file_ids = data.get('file_ids', [])  # 附加的文件ID列表
         llm_provider = data.get('llm_provider')  # 模型提供商ID（可选）
-        use_web_search = data.get('use_web_search', False)  # 是否启用联网搜索
+        agent_mode = data.get('agent_mode', 'normal')  # Agent 模式
         
         if not message:
             return Response(
@@ -253,7 +253,7 @@ def api_chat():
                     message,
                     file_ids,
                     llm_provider,
-                    use_web_search
+                    agent_mode
                 ):
                     yield chunk
             except Exception as e:

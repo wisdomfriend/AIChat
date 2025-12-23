@@ -110,6 +110,16 @@ class Config:
                 'max_context_length': 128000,  # gpt-5-pro 支持 128k 上下文
                 'supports_images': True,  # 支持图片
                 'enabled': True
+            },
+            'openai-3.5-turbo': {
+                'type': 'openai_compatible',
+                'base_url': 'https://api.openai.com/v1',
+                'api_key': os.environ.get('OPENAI_API_KEY', ''),
+                'model_name': 'gpt-3.5-turbo',
+                'display_name': 'gpt-3.5-turbo',
+                'max_context_length': 128000,  # gpt-5-pro 支持 128k 上下文
+                'supports_images': True,  # 支持图片
+                'enabled': True
             }
         }
         

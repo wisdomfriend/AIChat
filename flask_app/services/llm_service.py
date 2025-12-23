@@ -131,7 +131,7 @@ class LLMService:
             return api_key
         
         # OpenAI 从配置读取
-        elif provider_id == 'openai':
+        elif provider_id == 'openai' or provider_id == 'openai-3.5-turbo':
             api_key = provider_config.get('api_key')
             if not api_key:
                 raise ValueError("未配置 OpenAI API Key")

@@ -10,6 +10,7 @@ from .file_service import FileService
 from .langchain_memory_manager import LangChainMemoryManager
 from .llm_service import LLMService
 from .baidu_search_service import BaiduSearchService
+from .agent_service import AgentService
 
 
 class ChatService:
@@ -19,6 +20,7 @@ class ChatService:
         self.config = Config()
         self.llm_service = LLMService(self.config)
         self.search_service = BaiduSearchService(self.config)
+        self.agent_service = AgentService(self.config)
     
     def save_token_usage(self, user_id, usage_data, model_name):
         """保存token使用记录
@@ -248,7 +250,7 @@ class ChatService:
             title += "..."
         return title
     
-    def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None, llm_provider=None, use_web_search=False):
+    def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None, llm_provider=None, agent_mode='normal'):
         """处理带会话的流式聊天请求
         
         Args:
@@ -257,7 +259,7 @@ class ChatService:
             message: 用户消息
             file_ids: 附加的文件ID列表
             llm_provider: 模型提供商ID（可选，不传则使用会话保存的模型）
-            use_web_search: 是否启用联网搜索
+            agent_mode: Agent 模式，可选值：'normal'（普通聊天）、'web_search'（联网搜索）、'react'（推理与行动）、'plan_execute'（规划与执行）
             
         Yields:
             SSE格式的数据流
@@ -303,8 +305,19 @@ class ChatService:
                 user_id=user_id
             )
             
-            # 如果启用联网搜索，先执行搜索
+            # 根据 agent_mode 选择处理方式
             original_message = message
+            
+            # Agent 模式：react 或 plan_execute
+            if agent_mode in ['react', 'plan_execute']:
+                yield from self._process_agent_chat(
+                    user_id, session_id, message, file_ids, provider_id, 
+                    memory_manager, agent_mode
+                )
+                return
+            
+            # 联网搜索模式
+            use_web_search = (agent_mode == 'web_search')
             if use_web_search:
                 try:
                     # 发送搜索开始提示
@@ -408,4 +421,99 @@ class ChatService:
         except Exception as e:
             print(f"Process normal chat error: {e}")
             yield f"data: {json.dumps({'type': 'error', 'message': f'处理请求时出错: {str(e)}'})}\n\n"
+    
+    def _process_agent_chat(self, user_id, session_id, message, file_ids, provider_id, memory_manager, agent_mode):
+        """处理 Agent 模式的聊天（ReAct 或 Plan-and-Execute）
+        
+        Args:
+            user_id: 用户ID
+            session_id: 会话ID
+            message: 用户消息
+            file_ids: 文件ID列表
+            provider_id: 模型提供商ID
+            memory_manager: LangChain Memory Manager
+            agent_mode: Agent 模式（'react' 或 'plan_execute'）
+            
+        Yields:
+            SSE格式的数据流
+        """
+        try:
+            # 获取历史消息（用于 Agent 的上下文）
+            history_messages = memory_manager.get_history_messages_as_dict(include_files=False)
+            
+            # 如果有文件，将文件内容添加到消息中
+            if file_ids:
+                file_service = FileService()
+                file_context = file_service.get_file_contexts_from_ids(file_ids, user_id)
+                if file_context:
+                    message = f"{file_context}\n\n用户问题：{message}"
+            
+            # 根据 Agent 模式选择执行方法
+            if agent_mode == 'react':
+                agent_gen = self.agent_service.run_react_agent_stream(
+                    provider_id=provider_id,
+                    user_input=message,
+                    chat_history=history_messages
+                )
+            elif agent_mode == 'plan_execute':
+                agent_gen = self.agent_service.run_plan_execute_agent_stream(
+                    provider_id=provider_id,
+                    user_input=message,
+                    chat_history=history_messages
+                )
+            else:
+                yield f"data: {json.dumps({'type': 'error', 'message': f'不支持的 Agent 模式: {agent_mode}'})}\n\n"
+                return
+            
+            # 运行异步生成器
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                assistant_content = ''
+                usage = None
+                
+                while True:
+                    try:
+                        chunk = loop.run_until_complete(agent_gen.__anext__())
+                        yield chunk
+                        
+                        # 解析 chunk 提取内容
+                        if chunk.startswith('data: '):
+                            try:
+                                data_str = chunk[6:].strip()
+                                if data_str:
+                                    data = json.loads(data_str)
+                                    if data.get('type') == 'content':
+                                        assistant_content += data.get('content', '')
+                                    elif data.get('type') == 'usage':
+                                        usage = data.get('usage')
+                            except (json.JSONDecodeError, KeyError):
+                                pass
+                    except StopAsyncIteration:
+                        break
+            finally:
+                loop.close()
+            
+            # 保存对话上下文
+            if assistant_content:
+                memory_manager.save_context(message, assistant_content, user_file_ids=file_ids if file_ids else None)
+            
+            # 保存 token 使用记录（Agent 模式可能没有 usage，这里尝试保存）
+            if usage:
+                provider_config = self.llm_service.get_provider_config(provider_id)
+                model_name = provider_config.get('model_name', provider_id)
+                self.save_token_usage(user_id, usage, model_name)
+            
+            # 更新会话主题（如果是新会话）
+            history_messages = memory_manager.get_history_messages_as_dict()
+            if len(history_messages) <= 2:
+                title = self.generate_title_from_message(message)
+                self.update_session_title(session_id, user_id, title)
+                yield f"data: {json.dumps({'type': 'session_title', 'title': title})}\n\n"
+                
+        except Exception as e:
+            error_traceback = traceback.format_exc()
+            print(f"Process agent chat error: {e}")
+            print(f"详细错误信息:\n{error_traceback}")
+            yield f"data: {json.dumps({'type': 'error', 'message': f'Agent 处理错误: {str(e)}'})}\n\n"
     

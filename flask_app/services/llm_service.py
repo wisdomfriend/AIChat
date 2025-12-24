@@ -131,7 +131,7 @@ class LLMService:
             return api_key
         
         # OpenAI 从配置读取
-        elif provider_id == 'openai':
+        elif provider_id == 'openai' or provider_id == 'openai-3.5-turbo':
             api_key = provider_config.get('api_key')
             if not api_key:
                 raise ValueError("未配置 OpenAI API Key")
@@ -162,6 +162,7 @@ class LLMService:
         
         Args:
             messages: 消息列表，格式为 [{'role': '...', 'content': '...'}, ...]
+                     支持多模态消息：content 可以是字符串或数组
             provider_id: 模型提供商ID（用于选择 tokenizer）
             
         Returns:
@@ -183,9 +184,32 @@ class LLMService:
         for message in messages:
             role = message.get('role', '')
             content = message.get('content', '')
+            
+            # 处理多模态消息（content 是列表）
+            if isinstance(content, list):
+                tokens = 0
+                for part in content:
+                    if isinstance(part, dict):
+                        part_type = part.get('type', '')
+                        if part_type == 'text':
+                            # 文本部分：计算实际 token
+                            text = part.get('text', '')
+                            if isinstance(text, str):
+                                tokens += len(encoding.encode(text))
+                        elif part_type == 'image_url':
+                            # 图片部分：估算 token（通常图片会占用较多 token）
+                            # 粗略估算：每张图片约 85 token（基于 GPT-4 Vision 的估算）
+                            tokens += 85
+            elif isinstance(content, str):
+                # 普通文本消息：直接计算 token
+                tokens = len(encoding.encode(content))
+            else:
+                # 如果 content 不是字符串也不是列表，转换为字符串
+                content_str = str(content) if content is not None else ''
+                tokens = len(encoding.encode(content_str))
+            
             # 每条消息的格式：role + content + 格式标记
             # 粗略估算：content token + 4（格式标记）
-            tokens = len(encoding.encode(content))
             total_tokens += tokens + 4
         
         # 添加系统消息的额外开销
@@ -199,6 +223,8 @@ class LLMService:
         
         Args:
             messages: 消息列表，格式为 [{'role': '...', 'content': '...'}, ...]
+                     支持多模态消息：content 可以是字符串或数组
+                     数组格式：[{'type': 'text', 'text': '...'}, {'type': 'image_url', 'image_url': {'url': '...'}}]
             
         Returns:
             LangChain 消息对象列表
@@ -209,14 +235,23 @@ class LLMService:
             content = msg.get('content', '')
             
             if role == 'user':
-                langchain_messages.append(HumanMessage(content=content))
+                # 检查是否为多模态消息（content 是列表）
+                if isinstance(content, list):
+                    # 多模态消息：直接传递 content 数组
+                    langchain_messages.append(HumanMessage(content=content))
+                else:
+                    # 普通文本消息
+                    langchain_messages.append(HumanMessage(content=content))
             elif role == 'assistant':
                 langchain_messages.append(AIMessage(content=content))
             elif role == 'system':
                 langchain_messages.append(SystemMessage(content=content))
             else:
                 # 未知角色，默认作为用户消息
-                langchain_messages.append(HumanMessage(content=content))
+                if isinstance(content, list):
+                    langchain_messages.append(HumanMessage(content=content))
+                else:
+                    langchain_messages.append(HumanMessage(content=content))
         
         return langchain_messages
     
@@ -308,7 +343,7 @@ class LLMService:
         获取所有可用的模型提供商列表
         
         Returns:
-            提供商列表，格式为 [{'id': '...', 'name': '...', 'enabled': True}, ...]
+            提供商列表，格式为 [{'id': '...', 'name': '...', 'enabled': True, 'supports_images': False}, ...]
         """
         providers = []
         for provider_id, config in self.config.LLM_PROVIDERS.items():
@@ -316,7 +351,8 @@ class LLMService:
                 providers.append({
                     'id': provider_id,
                     'name': config.get('display_name', provider_id),
-                    'enabled': True
+                    'enabled': True,
+                    'supports_images': config.get('supports_images', False)
                 })
         return providers
     

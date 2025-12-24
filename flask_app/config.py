@@ -11,13 +11,18 @@ class Config:
     DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
     
     # 文件上传配置
-    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB (统一文件大小限制，包括文档和图片)
+    MAX_FILES_PER_REQUEST = 50  # 一次最多50个文件（统一文件数量限制）
     MAX_TEXT_LENGTH = 350000  # 最大提取文本长度（字符数）
     ALLOWED_EXTENSIONS = {
         '.txt', '.md', '.py', '.json', '.js', '.ts', '.html', '.css',
         '.xml', '.yaml', '.yml', '.ini', '.conf', '.cfg', '.log', '.csv',
         '.sql', '.sh', '.bat', '.java', '.c', '.cpp', '.h', '.go', '.rs',
         '.rb', '.php', '.pdf', '.docx', '.xlsx'
+    }
+    # 图片格式
+    IMAGE_EXTENSIONS = {
+        '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'
     }
     
     def __init__(self):
@@ -83,6 +88,7 @@ class Config:
                 'model_name': 'deepseek-chat',
                 'display_name': 'deepseek-chat',
                 'max_context_length': 128000,
+                'supports_images': False,  # 不支持图片
                 'enabled': True
             },
             'vllm': {
@@ -92,6 +98,7 @@ class Config:
                 'model_name': 'ayenaspring-pro-001',
                 'display_name': 'Qwen3-235B-A22B-Instruct-2507-AWQ',
                 'max_context_length': 128000,
+                'supports_images': False,  # 不支持图片
                 'enabled': True
             },
             'openai': {
@@ -101,6 +108,17 @@ class Config:
                 'model_name': 'gpt-5.2',
                 'display_name': 'gpt-5.2',
                 'max_context_length': 128000,  # gpt-5-pro 支持 128k 上下文
+                'supports_images': True,  # 支持图片
+                'enabled': True
+            },
+            'openai-3.5-turbo': {
+                'type': 'openai_compatible',
+                'base_url': 'https://api.openai.com/v1',
+                'api_key': os.environ.get('OPENAI_API_KEY', ''),
+                'model_name': 'gpt-3.5-turbo',
+                'display_name': 'gpt-3.5-turbo',
+                'max_context_length': 128000,  # gpt-5-pro 支持 128k 上下文
+                'supports_images': True,  # 支持图片
                 'enabled': True
             }
         }

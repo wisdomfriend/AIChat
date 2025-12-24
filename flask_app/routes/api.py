@@ -1,9 +1,12 @@
 """API路由"""
 import json
-from flask import Blueprint, Response, request, stream_with_context, jsonify
-from ..utils import get_current_user
+import os
+from flask import Blueprint, Response, request, stream_with_context, jsonify, send_file
+from ..utils import get_current_user, rate_limit_chat
 from ..services import ChatService, FileService, LLMService
 from ..config import Config
+from ..database import get_session
+from ..models import UploadedFile
 
 # 创建蓝图
 api_bp = Blueprint('api', __name__)
@@ -121,6 +124,7 @@ def test_auth():
 
 
 @api_bp.route('/chat', methods=['POST'])
+@rate_limit_chat
 def api_chat():
     """
     流式聊天API (SSE) - 支持会话和文件
@@ -164,11 +168,11 @@ def api_chat():
               type: string
               description: 模型提供商ID（可选）
               example: "deepseek"
-            use_web_search:
-              type: boolean
-              description: 是否启用联网搜索
-              default: false
-              example: false
+            agent_mode:
+              type: string
+              description: Agent 模式，可选值：normal（普通聊天）、web_search（联网搜索）、react（推理与行动）、plan_execute（规划与执行）
+              default: "normal"
+              example: "react"
     responses:
       200:
         description: 流式响应成功
@@ -220,7 +224,7 @@ def api_chat():
         session_id = data.get('session_id')  # 会话ID，如果为None则创建新会话
         file_ids = data.get('file_ids', [])  # 附加的文件ID列表
         llm_provider = data.get('llm_provider')  # 模型提供商ID（可选）
-        use_web_search = data.get('use_web_search', False)  # 是否启用联网搜索
+        agent_mode = data.get('agent_mode', 'normal')  # Agent 模式
         
         if not message:
             return Response(
@@ -250,7 +254,7 @@ def api_chat():
                     message,
                     file_ids,
                     llm_provider,
-                    use_web_search
+                    agent_mode
                 ):
                     yield chunk
             except Exception as e:
@@ -800,6 +804,74 @@ def delete_file(file_id):
     except Exception as e:
         print(f"Delete file error: {e}")
         return jsonify({'error': f'删除失败: {str(e)}'}), 500
+
+
+@api_bp.route('/files/<int:file_id>/image', methods=['GET'])
+def get_image(file_id):
+    """
+    获取图片文件
+    ---
+    tags:
+      - 文件
+    summary: 获取图片文件内容
+    description: 返回图片文件的二进制内容，需要登录验证
+    produces:
+      - image/*
+    parameters:
+      - in: path
+        name: file_id
+        type: integer
+        required: true
+        description: 文件ID
+        example: 1
+    responses:
+      200:
+        description: 图片文件
+        schema:
+          type: file
+      401:
+        description: 未登录
+      404:
+        description: 文件不存在、无权限或不是图片文件
+      500:
+        description: 服务器内部错误
+    security:
+      - sessionAuth: []
+    """
+    user = get_current_user()
+    if not user:
+        return jsonify({'error': '未登录'}), 401
+    
+    db = get_session()
+    try:
+        file_obj = db.query(UploadedFile).filter(
+            UploadedFile.id == file_id,
+            UploadedFile.user_id == user['id']
+        ).first()
+        
+        if not file_obj:
+            return jsonify({'error': '文件不存在或无权限'}), 404
+        
+        # 检查是否为图片文件
+        file_service = FileService()
+        if not file_service.extractor.is_image(file_obj.file_extension):
+            return jsonify({'error': '文件不是图片格式'}), 404
+        
+        # 检查文件是否存在
+        if not os.path.exists(file_obj.file_path):
+            return jsonify({'error': '文件不存在'}), 404
+        
+        # 返回图片文件
+        return send_file(
+            file_obj.file_path,
+            mimetype=file_obj.file_type or 'image/jpeg',
+            as_attachment=False
+        )
+    except Exception as e:
+        print(f"Get image error: {e}")
+        return jsonify({'error': '获取图片失败'}), 500
+    finally:
+        db.close()
 
 
 @api_bp.route('/files/supported', methods=['GET'])

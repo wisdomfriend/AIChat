@@ -46,6 +46,14 @@ class FileExtractor:
         '.pdf': 'pdf',
         '.docx': 'docx',
         '.xlsx': 'xlsx',
+        # 图片文件（不需要提取文本）
+        '.jpg': 'image',
+        '.jpeg': 'image',
+        '.png': 'image',
+        '.gif': 'image',
+        '.webp': 'image',
+        '.bmp': 'image',
+        '.svg': 'image',
     }
     
     # DeepSeek 上下文限制 (128K tokens ≈ 约 400K 字符，保守估计 350K)
@@ -57,6 +65,11 @@ class FileExtractor:
     def is_supported(self, extension: str) -> bool:
         """检查文件扩展名是否支持"""
         return extension.lower() in self.SUPPORTED_EXTENSIONS
+    
+    def is_image(self, extension: str) -> bool:
+        """检查是否为图片文件"""
+        ext = extension.lower()
+        return ext in self.SUPPORTED_EXTENSIONS and self.SUPPORTED_EXTENSIONS[ext] == 'image'
     
     def get_supported_extensions(self) -> list:
         """获取支持的文件扩展名列表"""
@@ -186,13 +199,14 @@ class FileService:
             os.makedirs(user_dir)
         return user_dir
     
-    def validate_file(self, filename: str, file_size: int) -> tuple[bool, str]:
+    def validate_file(self, filename: str, file_size: int, is_image: bool = False) -> tuple[bool, str]:
         """
         验证文件
         
         Args:
             filename: 文件名
             file_size: 文件大小(字节)
+            is_image: 是否为图片文件（保留参数以兼容现有代码，但不用于大小限制）
             
         Returns:
             tuple: (是否有效, 错误信息)
@@ -209,10 +223,11 @@ class FileService:
             supported = ', '.join(self.extractor.get_supported_extensions())
             return False, f'不支持的文件类型，支持: {supported}'
         
-        # 检查文件大小 (100MB)
-        max_size = 100 * 1024 * 1024
+        # 统一文件大小限制（所有文件类型使用相同的限制）
+        max_size = self.config.MAX_FILE_SIZE
         if file_size > max_size:
-            return False, f'文件过大，最大支持 100MB'
+            max_size_mb = max_size / (1024 * 1024)
+            return False, f'文件过大，最大支持 {int(max_size_mb)}MB'
         
         return True, ''
     
@@ -235,8 +250,13 @@ class FileService:
             file_size = file.tell()
             file.seek(0)  # 重置到文件开头
             
+            # 获取扩展名
+            _, ext = os.path.splitext(filename)
+            ext = ext.lower()
+            is_image_file = self.extractor.is_image(ext)
+            
             # 验证文件
-            is_valid, error = self.validate_file(filename, file_size)
+            is_valid, error = self.validate_file(filename, file_size, is_image_file)
             if not is_valid:
                 return {'success': False, 'error': error}
             
@@ -257,9 +277,14 @@ class FileService:
             if not mime_type:
                 mime_type = 'application/octet-stream'
             
-            # 提取文本
-            extracted_text, extraction_status = self.extractor.extract(file_path, ext)
-            text_length = len(extracted_text) if extracted_text else 0
+            # 提取文本（图片文件不需要提取文本）
+            if is_image_file:
+                extracted_text = ''
+                extraction_status = 'success'  # 图片文件标记为成功，但不需要提取文本
+                text_length = 0
+            else:
+                extracted_text, extraction_status = self.extractor.extract(file_path, ext)
+                text_length = len(extracted_text) if extracted_text else 0
             
             # 保存到数据库
             db = get_session()
@@ -287,7 +312,9 @@ class FileService:
                     'filename': filename,
                     'file_size': file_size,
                     'extraction_status': extraction_status,
-                    'text_length': text_length
+                    'text_length': text_length,
+                    'is_image': is_image_file,
+                    'file_extension': ext
                 }
             except Exception as e:
                 db.rollback()

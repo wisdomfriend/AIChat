@@ -100,7 +100,7 @@
                         <select id="llmProviderSelect" class="model-selector" onchange="handleModelChange()">
                             <option value="">加载中...</option>
                         </select>
-                        <button id="webSearchButton" class="action-button" onclick="toggleWebSearch()" title="联网搜索">
+                        <button id="webSearchButton" class="action-button" onclick="setAgentMode('web_search')" title="联网搜索 测试中,还不好用">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="11" cy="11" r="8"></circle>
                                 <path d="m21 21-4.35-4.35"></path>
@@ -108,6 +108,21 @@
                             </svg>
                             <span>联网搜索</span>
                         </button>
+                        <button id="reactAgentButton" class="action-button" onclick="setAgentMode('react')" title="推理与行动机器人 测试中,还不好用">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2L2 7L12 12L22 7L12 2Z"></path>
+                                <path d="M2 17L12 22L22 17"></path>
+                                <path d="M2 12L12 17L22 12"></path>
+                            </svg>
+                            <span>推理与行动</span>
+                        </button>
+                        <button id="planExecuteButton" class="action-button" onclick="setAgentMode('plan_execute')" title="规划与执行机器人 测试中,还不好用">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 3h18v18H3zM3 9h18M9 3v18"></path>
+                            </svg>
+                            <span>规划与执行</span>
+                        </button>
+                        <span id="imageSupportWarning" class="image-support-warning" style="display: none;"></span>
                     </div>
                     
                     <!-- 已选择的文件显示区域 -->
@@ -124,11 +139,18 @@
                             ></textarea>
                         </div>
                         <!-- 文件上传按钮 -->
-                        <button id="uploadButton" class="upload-button" onclick="triggerFileUpload()" title="上传文件">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
+                        <div class="upload-button-wrapper">
+                            <button id="uploadButton" class="upload-button" onclick="triggerFileUpload()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <div class="upload-tooltip">
+                                <div class="upload-tooltip-content">
+                                    <div class="upload-tooltip-text">最多{{ max_files_per_request }}个,每个{{ (max_file_size / (1024 * 1024)) | int }} MB,支持各类文档和图片,对于不支持图片的模型,会忽略图片</div>
+                                </div>
+                            </div>
+                        </div>
                         <button id="sendButton" class="send-button" onclick="sendMessage()" title="发送 (Enter)">
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                                 <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -137,14 +159,14 @@
                     </div>
                     <div class="input-footer">
                         <span class="token-info" id="tokenInfo"></span>
-                        <span class="input-hint">按 Enter 发送，Shift + Enter 换行 | 支持上传文件进行对话</span>
+                        <span class="input-hint">按 Enter 发送，Shift + Enter 换行 | 支持上传文件进行对话 | 仅gpt-5.2支持图片</span>
                         <span class="char-count" id="charCount">0 / 64 KB</span>
                     </div>
                 </div>
                 
                 <!-- 隐藏的文件输入 -->
                 <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(event)" 
-                       accept=".txt,.md,.py,.json,.js,.ts,.html,.css,.xml,.yaml,.yml,.ini,.conf,.cfg,.log,.csv,.sql,.sh,.bat,.java,.c,.cpp,.h,.go,.rs,.rb,.php,.pdf,.docx,.xlsx">
+                       accept=".txt,.md,.py,.json,.js,.ts,.html,.css,.xml,.yaml,.yml,.ini,.conf,.cfg,.log,.csv,.sql,.sh,.bat,.java,.c,.cpp,.h,.go,.rs,.rb,.php,.pdf,.docx,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg" multiple>
             </div>
         </main>
     </div>
@@ -162,6 +184,10 @@
         // 消息长度限制：64KB (65536 字节)
         const MAX_MESSAGE_SIZE = 64 * 1024; // 64KB in bytes
         
+        // 文件上传限制（从配置读取）
+        const MAX_FILE_SIZE = {{ max_file_size }}; // 字节
+        const MAX_FILES_PER_REQUEST = {{ max_files_per_request }};
+        
         // 当前会话ID
         let currentSessionId = null;
         
@@ -174,8 +200,11 @@
         // 可用的模型提供商列表
         let availableProviders = [];
         
-        // 功能开关状态
-        let useWebSearch = false;  // 联网搜索
+        // 当前模型是否支持图片
+        let currentModelSupportsImages = false;
+        
+        // Agent 模式状态（互斥）
+        let agentMode = 'normal';  // 'normal' | 'web_search' | 'react' | 'plan_execute'
         
         // ==================== 文件上传相关 ====================
         
@@ -189,31 +218,65 @@
             const files = event.target.files;
             if (!files || files.length === 0) return;
             
+            // 检查文件数量限制（统一限制，不区分图片和文本）
+            const totalFiles = selectedFiles.length + files.length;
+            if (totalFiles > MAX_FILES_PER_REQUEST) {
+                alert(`文件数量过多，一次最多支持${MAX_FILES_PER_REQUEST}个文件（当前已选择${selectedFiles.length}个，本次选择${files.length}个）`);
+                fileInput.value = '';
+                return;
+            }
+            
+            // 检查文件大小并添加到选择列表（不上传）
             for (const file of files) {
-                await uploadFile(file);
+                const maxSizeMB = Math.floor(MAX_FILE_SIZE / (1024 * 1024));
+                
+                if (file.size > MAX_FILE_SIZE) {
+                    alert(`文件 "${file.name}" 过大，最大支持 ${maxSizeMB}MB`);
+                    continue;
+                }
+                
+                const isImage = isImageFile(file.name);
+                const tempId = 'temp_' + Date.now() + '_' + Math.random();
+                
+                // 为图片创建预览URL
+                let previewUrl = null;
+                if (isImage) {
+                    previewUrl = URL.createObjectURL(file);
+                }
+                
+                // 添加到选择列表（未上传状态）
+                addFileToSelection({
+                    id: tempId,
+                    original_filename: file.name,
+                    file_size: file.size,
+                    is_image: isImage,
+                    file: file,  // 保存文件对象，用于后续上传
+                    previewUrl: previewUrl,  // 图片预览URL
+                    uploaded: false  // 标记为未上传
+                });
             }
             
             // 清空input，允许重复选择同一文件
             fileInput.value = '';
         }
         
+        // 检查是否为图片文件
+        function isImageFile(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext);
+        }
+        
         // 上传单个文件
-        async function uploadFile(file) {
-            // 检查文件大小
-            const maxSize = 100 * 1024 * 1024; // 100MB
-            if (file.size > maxSize) {
-                alert(`文件 "${file.name}" 过大，最大支持 100MB`);
-                return;
+        async function uploadFile(file, tempId) {
+            // 找到对应的文件信息
+            const fileInfo = selectedFiles.find(f => f.id === tempId);
+            if (!fileInfo) {
+                throw new Error('文件信息未找到');
             }
             
-            // 显示上传中状态
-            const tempId = 'temp_' + Date.now();
-            addFileToSelection({
-                id: tempId,
-                original_filename: file.name,
-                file_size: file.size,
-                uploading: true
-            });
+            // 标记为上传中
+            fileInfo.uploading = true;
+            renderSelectedFiles();
             
             try {
                 const formData = new FormData();
@@ -226,18 +289,28 @@
                 
                 const result = await response.json();
                 
-                // 移除临时状态
-                removeFileFromSelection(tempId);
-                
                 if (result.success) {
-                    // 添加上传成功的文件
-                    addFileToSelection({
-                        id: result.file_id,
-                        original_filename: result.filename,
-                        file_size: result.file_size,
-                        extraction_status: result.extraction_status,
-                        text_length: result.text_length
-                    });
+                    // 更新文件信息
+                    fileInfo.id = result.file_id;
+                    fileInfo.original_filename = result.filename;
+                    fileInfo.file_size = result.file_size;
+                    fileInfo.extraction_status = result.extraction_status;
+                    fileInfo.text_length = result.text_length;
+                    fileInfo.is_image = result.is_image || false;
+                    fileInfo.file_extension = result.file_extension || '';
+                    fileInfo.uploaded = true;
+                    fileInfo.uploading = false;
+                    
+                    // 如果是图片，释放预览URL
+                    if (fileInfo.previewUrl) {
+                        URL.revokeObjectURL(fileInfo.previewUrl);
+                        fileInfo.previewUrl = null;
+                    }
+                    
+                    // 移除文件对象（已上传，不再需要）
+                    delete fileInfo.file;
+                    
+                    renderSelectedFiles();
                     
                     // 显示状态提示
                     if (result.extraction_status === 'too_large') {
@@ -248,12 +321,15 @@
                         tokenInfo.textContent = `✓ 已上传: ${result.filename}`;
                     }
                 } else {
-                    alert(`上传失败: ${result.error}`);
+                    fileInfo.uploading = false;
+                    renderSelectedFiles();
+                    throw new Error(result.error || '上传失败');
                 }
             } catch (error) {
-                removeFileFromSelection(tempId);
+                fileInfo.uploading = false;
+                renderSelectedFiles();
                 console.error('Upload error:', error);
-                alert(`上传失败: ${error.message}`);
+                throw error;
             }
         }
         
@@ -269,9 +345,45 @@
         }
         
         // 从已选择列表移除文件
-        function removeFileFromSelection(fileId) {
+        async function removeFileFromSelection(fileId) {
+            const file = selectedFiles.find(f => f.id === fileId);
+            if (!file) return;
+            
+            // 如果是图片且有预览URL，释放URL
+            if (file.previewUrl) {
+                URL.revokeObjectURL(file.previewUrl);
+            }
+            
+            // 如果文件已上传，调用删除API
+            if (file.uploaded && file.id && !file.id.startsWith('temp_')) {
+                try {
+                    await fetch(`/api/files/${file.id}`, {
+                        method: 'DELETE'
+                    });
+                } catch (error) {
+                    console.error('Delete file error:', error);
+                }
+            }
+            
+            // 从列表中移除
             selectedFiles = selectedFiles.filter(f => f.id !== fileId);
             renderSelectedFiles();
+        }
+        
+        // 更新图片支持警告
+        function updateImageSupportWarning() {
+            const warningElement = document.getElementById('imageSupportWarning');
+            if (!warningElement) return;
+            
+            // 检查是否有图片文件且当前模型不支持图片
+            const hasImages = selectedFiles.some(f => f.is_image && !f.uploading);
+            
+            if (hasImages && !currentModelSupportsImages) {
+                warningElement.textContent = '当前模型不支持图片,仅gpt5.2支持图片,对话会忽略图片';
+                warningElement.style.display = 'inline-block';
+            } else {
+                warningElement.style.display = 'none';
+            }
         }
         
         // 渲染已选择的文件
@@ -279,6 +391,7 @@
             if (selectedFiles.length === 0) {
                 selectedFilesContainer.innerHTML = '';
                 selectedFilesContainer.style.display = 'none';
+                updateImageSupportWarning();
                 return;
             }
             
@@ -286,9 +399,33 @@
             selectedFilesContainer.innerHTML = selectedFiles.map(file => {
                 const sizeStr = formatFileSize(file.file_size);
                 const statusIcon = file.uploading ? '⏳' : 
-                                   file.extraction_status === 'success' ? '✓' :
-                                   file.extraction_status === 'too_large' ? '⚠️' : '❌';
+                                   file.uploaded ? (file.extraction_status === 'success' ? '✓' :
+                                   file.extraction_status === 'too_large' ? '⚠️' : '❌') : '';
                 
+                // 如果是图片，显示缩略图（不显示文件名）
+                if (file.is_image) {
+                    const imageUrl = file.uploaded ? `/api/files/${file.id}/image` : file.previewUrl;
+                    return `
+                        <div class="selected-file selected-image ${file.uploading ? 'uploading' : ''}" data-file-id="${file.id}">
+                            <div class="image-preview">
+                                <img src="${imageUrl}" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="image-placeholder" style="display: none;">
+                                    <div class="file-icon">🖼️</div>
+                                </div>
+                            </div>
+                            ${file.uploading ? '' : `
+                                <button class="file-remove" onclick="removeFileFromSelection('${file.id}')" title="移除">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </button>
+                            `}
+                        </div>
+                    `;
+                }
+                
+                // 文本文件，显示文件名
                 return `
                     <div class="selected-file ${file.uploading ? 'uploading' : ''}" data-file-id="${file.id}">
                         <div class="file-icon">${getFileIcon(file.original_filename)}</div>
@@ -307,6 +444,9 @@
                     </div>
                 `;
             }).join('');
+            
+            // 更新图片支持警告
+            updateImageSupportWarning();
         }
         
         // 获取文件图标
@@ -338,6 +478,12 @@
         
         // 清除所有已选择的文件
         function clearSelectedFiles() {
+            // 释放所有图片预览URL
+            selectedFiles.forEach(file => {
+                if (file.previewUrl) {
+                    URL.revokeObjectURL(file.previewUrl);
+                }
+            });
             selectedFiles = [];
             renderSelectedFiles();
         }
@@ -558,13 +704,29 @@
                 if (files && files.length > 0 && isUser) {
                     const filesDiv = document.createElement('div');
                     filesDiv.className = 'message-files';
-                    filesDiv.innerHTML = files.map(f => `
-                        <div class="message-file">
-                            <span class="file-icon">${getFileIcon(f.filename)}</span>
-                            <span class="file-name">${escapeHtml(f.filename)}</span>
-                            <span class="file-size">${formatFileSize(f.file_size)}</span>
-                        </div>
-                    `).join('');
+                    filesDiv.innerHTML = files.map(f => {
+                        // 如果是图片，显示图片预览
+                        if (f.is_image && f.id) {
+                            const imageUrl = `/api/files/${f.id}/image`;
+                            return `
+                                <div class="message-file message-image">
+                                    <img src="${imageUrl}" alt="${escapeHtml(f.filename)}" class="message-image-preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="image-fallback" style="display: none;">
+                                        <span class="file-icon">🖼️</span>
+                                        <span class="file-name">${escapeHtml(f.filename)}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        // 文本文件
+                        return `
+                            <div class="message-file">
+                                <span class="file-icon">${getFileIcon(f.filename)}</span>
+                                <span class="file-name">${escapeHtml(f.filename)}</span>
+                                <span class="file-size">${formatFileSize(f.file_size)}</span>
+                            </div>
+                        `;
+                    }).join('');
                     messageWrapper.appendChild(filesDiv);
                 }
                 
@@ -666,14 +828,32 @@
             sendButton.disabled = true;
             sendButton.classList.add('disabled');
 
+            // 先上传所有未上传的文件
+            const filesToUpload = selectedFiles.filter(f => !f.uploaded && f.file);
+            for (const fileInfo of filesToUpload) {
+                try {
+                    await uploadFile(fileInfo.file, fileInfo.id);
+                } catch (error) {
+                    console.error('Upload file error:', error);
+                    alert(`文件 "${fileInfo.original_filename}" 上传失败: ${error.message}`);
+                    // 恢复输入和按钮
+                    messageInput.disabled = false;
+                    sendButton.disabled = false;
+                    sendButton.classList.remove('disabled');
+                    return;
+                }
+            }
+
             // 获取当前选择的文件（过滤掉上传中的）
-            const currentFiles = selectedFiles.filter(f => !f.uploading);
+            const currentFiles = selectedFiles.filter(f => !f.uploading && f.uploaded);
             const fileIds = currentFiles.map(f => f.id);
             
-            // 准备显示的文件信息
+            // 准备显示的文件信息（包含完整信息，用于显示图片）
             const displayFiles = currentFiles.map(f => ({
+                id: f.id,
                 filename: f.original_filename,
-                file_size: f.file_size
+                file_size: f.file_size,
+                is_image: f.is_image || false
             }));
 
             // 添加用户消息（包含文件）
@@ -707,17 +887,16 @@
                         session_id: currentSessionId,
                         file_ids: fileIds,
                         llm_provider: currentLlmProvider || undefined,
-                        use_web_search: useWebSearch  // 联网搜索
+                        agent_mode: agentMode  // Agent 模式
                     })
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
+                // 统一读取响应体，无论状态码如何，都尝试解析SSE格式的错误信息
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let buffer = '';
+                let hasErrorFromSSE = false;
+                let errorMessage = null;
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -744,6 +923,26 @@
                             try {
                                 const data = JSON.parse(dataStr);
                                 
+                                // 优先处理错误信息（包括429限流错误）
+                                if (data.type === 'error') {
+                                    hasErrorFromSSE = true;
+                                    errorMessage = data.message || '未知错误';
+                                    // 显示错误信息
+                                    if (aiMessageDiv) {
+                                        addMessage('错误: ' + errorMessage, false, null, aiMessageDiv);
+                                    } else {
+                                        addMessage('错误: ' + errorMessage, false);
+                                    }
+                                    tokenInfo.textContent = '请求失败';
+                                    // 继续读取直到流结束，确保资源正确释放
+                                    continue;
+                                }
+                                
+                                // 如果已经遇到错误，不再处理其他类型的数据
+                                if (hasErrorFromSSE) {
+                                    continue;
+                                }
+                                
                                 if (data.type === 'session_id') {
                                     // 收到新会话ID
                                     currentSessionId = data.session_id;
@@ -766,16 +965,6 @@
                                 } else if (data.type === 'usage') {
                                     // 保存usage信息，最后显示
                                     usage = data.usage;
-                                } else if (data.type === 'error') {
-                                    // 显示错误
-                                    if (aiMessageDiv) {
-                                        // 如果已经有消息，更新它显示错误
-                                        addMessage('错误: ' + (data.message || '未知错误'), false, null, aiMessageDiv);
-                                    } else {
-                                        addMessage('错误: ' + (data.message || '未知错误'), false);
-                                    }
-                                    tokenInfo.textContent = '请求失败';
-                                    // 不return，让流正常结束，finally块会执行
                                 } else if (data.type === 'search_start') {
                                     // 搜索开始
                                     tokenInfo.textContent = data.message || '正在搜索...';
@@ -785,6 +974,62 @@
                                 } else if (data.type === 'search_error') {
                                     // 搜索错误（不影响正常流程）
                                     tokenInfo.textContent = data.message || '搜索失败';
+                                } else if (data.type === 'agent_think') {
+                                    // Agent 思考过程
+                                    if (!aiMessageDiv) {
+                                        aiMessageDiv = addMessage('', false);
+                                    }
+                                    const thinkContent = `<div class="agent-think">${data.content || ''}</div>`;
+                                    aiMessageContent += thinkContent;
+                                    addMessage(aiMessageContent, false, null, aiMessageDiv);
+                                    tokenInfo.textContent = '正在思考...';
+                                } else if (data.type === 'agent_action') {
+                                    // Agent 行动
+                                    if (!aiMessageDiv) {
+                                        aiMessageDiv = addMessage('', false);
+                                    }
+                                    const actionContent = `<div class="agent-action">${data.content || ''}</div>`;
+                                    aiMessageContent += actionContent;
+                                    addMessage(aiMessageContent, false, null, aiMessageDiv);
+                                    tokenInfo.textContent = '正在执行...';
+                                } else if (data.type === 'agent_observation') {
+                                    // Agent 观察结果
+                                    if (!aiMessageDiv) {
+                                        aiMessageDiv = addMessage('', false);
+                                    }
+                                    const obsContent = `<div class="agent-observation">${data.content || ''}</div>`;
+                                    aiMessageContent += obsContent;
+                                    addMessage(aiMessageContent, false, null, aiMessageDiv);
+                                    tokenInfo.textContent = '观察结果...';
+                                } else if (data.type === 'agent_plan') {
+                                    // Agent 规划
+                                    if (!aiMessageDiv) {
+                                        aiMessageDiv = addMessage('', false);
+                                    }
+                                    const planContent = `<div class="agent-plan">规划：${data.content || ''}</div>`;
+                                    aiMessageContent += planContent;
+                                    addMessage(aiMessageContent, false, null, aiMessageDiv);
+                                    tokenInfo.textContent = '规划完成，正在执行...';
+                                } else if (data.type === 'agent_plan_step') {
+                                    // Agent 规划步骤
+                                    if (!aiMessageDiv) {
+                                        aiMessageDiv = addMessage('', false);
+                                    }
+                                    const stepNum = data.step_num || '';
+                                    const stepContent = `<div class="agent-plan-step">${data.content || ''}</div>`;
+                                    aiMessageContent += stepContent;
+                                    addMessage(aiMessageContent, false, null, aiMessageDiv);
+                                    tokenInfo.textContent = `规划步骤 ${stepNum}...`;
+                                } else if (data.type === 'agent_execute_step') {
+                                    // Agent 执行步骤
+                                    if (!aiMessageDiv) {
+                                        aiMessageDiv = addMessage('', false);
+                                    }
+                                    const stepNum = data.step_num || '';
+                                    const stepContent = `<div class="agent-execute-step">${data.content || ''}</div>`;
+                                    aiMessageContent += stepContent;
+                                    addMessage(aiMessageContent, false, null, aiMessageDiv);
+                                    tokenInfo.textContent = `执行步骤 ${stepNum}...`;
                                 } else if (data.type === 'done') {
                                     // 流式响应完成
                                     if (usage) {
@@ -807,6 +1052,17 @@
                             }
                         }
                     }
+                }
+                
+                // 如果从SSE中获取到了错误信息，已经显示过了，直接返回
+                if (hasErrorFromSSE) {
+                    removeLoading();
+                    return;
+                }
+                
+                // 如果响应状态码不是200，但没有从SSE中获取到错误信息，抛出HTTP错误
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
                 // 流式响应正常结束，如果没有收到done信号，也处理一下
@@ -854,6 +1110,7 @@
                     if (provider.id === defaultProvider) {
                         option.selected = true;
                         currentLlmProvider = defaultProvider;
+                        currentModelSupportsImages = provider.supports_images || false;
                     }
                     select.appendChild(option);
                 });
@@ -861,7 +1118,14 @@
                 // 如果没有当前选择的模型，使用默认模型
                 if (!currentLlmProvider && defaultProvider) {
                     currentLlmProvider = defaultProvider;
+                    const defaultProviderData = availableProviders.find(p => p.id === defaultProvider);
+                    if (defaultProviderData) {
+                        currentModelSupportsImages = defaultProviderData.supports_images || false;
+                    }
                 }
+                
+                // 更新图片支持警告
+                updateImageSupportWarning();
             } catch (error) {
                 console.error('Load LLM providers error:', error);
                 const select = document.getElementById('llmProviderSelect');
@@ -876,20 +1140,47 @@
             
             if (newProvider && newProvider !== currentLlmProvider) {
                 currentLlmProvider = newProvider;
+                // 更新当前模型是否支持图片
+                const providerData = availableProviders.find(p => p.id === newProvider);
+                if (providerData) {
+                    currentModelSupportsImages = providerData.supports_images || false;
+                } else {
+                    currentModelSupportsImages = false;
+                }
+                // 更新图片支持警告
+                updateImageSupportWarning();
                 // 如果当前有会话，切换模型会更新会话的模型选择
                 // 不清空历史，继续使用当前对话历史
             }
         }
         
         
-        // 切换联网搜索模式
-        function toggleWebSearch() {
-            useWebSearch = !useWebSearch;
-            const button = document.getElementById('webSearchButton');
-            if (useWebSearch) {
-                button.classList.add('active');
-            } else {
-                button.classList.remove('active');
+        // 设置 Agent 模式（互斥）
+        function setAgentMode(mode) {
+            // 如果点击的是当前已激活的按钮，则取消激活（切换回 normal）
+            if (agentMode === mode) {
+                mode = 'normal';
+            }
+            
+            agentMode = mode;
+            
+            // 更新所有按钮状态
+            const webSearchButton = document.getElementById('webSearchButton');
+            const reactAgentButton = document.getElementById('reactAgentButton');
+            const planExecuteButton = document.getElementById('planExecuteButton');
+            
+            // 移除所有 active 类
+            webSearchButton.classList.remove('active');
+            reactAgentButton.classList.remove('active');
+            planExecuteButton.classList.remove('active');
+            
+            // 根据模式激活对应按钮
+            if (mode === 'web_search') {
+                webSearchButton.classList.add('active');
+            } else if (mode === 'react') {
+                reactAgentButton.classList.add('active');
+            } else if (mode === 'plan_execute') {
+                planExecuteButton.classList.add('active');
             }
         }
         

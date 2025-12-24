@@ -15,8 +15,10 @@
 
 **AIChat** 是一个开源的 AI 聊天 Web 应用。项目使用 **Flask** 作为后端框架，集成了 **DeepSeek API** 提供 AI 聊天服务。通过 **Docker Compose** 实现一键部署。
 
-![主页面](./images/main_page.png)
-![swagger页面](./images/swagger.png)
+
+![主页面](images/main_page.png)
+![swagger页面](images/swagger.png)
+![管理页面](images/admin_page.png)
 ###  核心特性
 
 -  **AI聊天功能**：集成 DeepSeek API，支持实时对话交互，上传文件，支持公式/代码/markdown的格式化显示
@@ -243,11 +245,11 @@ docker-compose restart nginx
    - ✅ 前端实现 Server-Sent Events (SSE) 或 WebSocket 接收流式数据
    - ✅ 减少用户等待时间，提升交互体验
 
-3. **API 访问频率限制**
-   - 使用 Redis 实现聊天 API 访问频率限制
-   - 限制规则：1 分钟内最多访问 5 次
-   - 基于用户 ID 或 IP 地址进行限流
-   - 返回友好的错误提示信息
+3. ✅ **API 访问频率限制**
+   ✅ - 使用 Redis 实现聊天 API 访问频率限制
+   ✅ - 限制规则：1 分钟内最多访问 5 次
+   ✅ - 基于用户 ID 进行限流
+   ✅ - 返回友好的错误提示信息
 4. ✅ **显示优化**
    - ✅ 支持markdown/公式/代码的格式化显示,使用KaTeX/Marked.js/Highlight.js
 5. ✅ **文件对话**
@@ -260,11 +262,12 @@ docker-compose restart nginx
      - 增加收藏功能
      - 增加对话内容/上传文件的删除功能
      - 上下文总结时增加提示
-     - 联网搜索改为从搜索引擎得到3格网址,进入搜索,而不是看搜索摘要
+     - 联网搜索改为从直接调用百度接口,而不是通过爬虫的模式
      - 支持图片输入
 7.  **higress部署**
     - 增加higress部署
-
+8. **langchain agent的使用**
+    - langchain agent的使用
 ## 许可证
 
 本项目采用 [MIT License](LICENSE) 许可证。

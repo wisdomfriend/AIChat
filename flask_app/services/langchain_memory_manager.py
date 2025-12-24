@@ -268,17 +268,112 @@ class LangChainMemoryManager:
                 'content': msg['content']
             })
         
-        # 获取当前消息的文件上下文
-        file_context = self.get_current_file_context(file_ids) if file_ids else ""
+        # 分离图片文件和文本文件
+        image_file_ids = []
+        text_file_ids = []
         
-        # 构建用户消息
+        # 检查模型是否支持图片
+        supports_images = False
+        if llm_provider:
+            from ..config import Config
+            config = Config()
+            provider_config = config.LLM_PROVIDERS.get(llm_provider, {})
+            supports_images = provider_config.get('supports_images', False)
+        
+        if file_ids:
+            from ..services import FileService
+            file_service = FileService()
+            for file_id in file_ids:
+                file_info = file_service.get_file(file_id, self.user_id)
+                if file_info:
+                    # 检查是否为图片
+                    if file_service.extractor.is_image(file_info.get('file_extension', '')):
+                        # 只有模型支持图片时才添加图片文件
+                        if supports_images:
+                            image_file_ids.append(file_id)
+                        # 如果不支持图片，忽略图片文件（不添加到任何列表）
+                    else:
+                        text_file_ids.append(file_id)
+        
+        # 获取文本文件的上下文
+        file_context = self.get_current_file_context(text_file_ids) if text_file_ids else ""
+        
+        # 构建用户消息内容
         user_content = file_context + user_message if file_context else user_message
         
-        # 添加当前用户消息
-        api_messages.append({
-            'role': 'user',
-            'content': user_content
-        })
+        # 如果有图片且模型支持图片，构建多模态消息格式
+        if image_file_ids and supports_images:
+            # 构建多模态消息：content 为数组
+            content_parts = []
+            
+            # 添加文本内容
+            if user_content:
+                content_parts.append({
+                    'type': 'text',
+                    'text': user_content
+                })
+            
+            # 添加图片（转换为base64格式，因为需要登录访问）
+            for image_file_id in image_file_ids:
+                try:
+                    # 获取图片文件信息
+                    file_obj = file_service.get_file(image_file_id, self.user_id)
+                    if not file_obj:
+                        continue
+                    
+                    # 读取图片文件并转换为base64
+                    import base64
+                    import os
+                    from ..database import get_session
+                    from ..models import UploadedFile
+                    
+                    db = get_session()
+                    try:
+                        uploaded_file = db.query(UploadedFile).filter(
+                            UploadedFile.id == image_file_id,
+                            UploadedFile.user_id == self.user_id
+                        ).first()
+                        
+                        if not uploaded_file or not os.path.exists(uploaded_file.file_path):
+                            continue
+                        
+                        # 读取图片文件
+                        with open(uploaded_file.file_path, 'rb') as f:
+                            image_data = f.read()
+                        
+                        # 转换为base64
+                        image_base64 = base64.b64encode(image_data).decode('utf-8')
+                        
+                        # 获取MIME类型
+                        mime_type = uploaded_file.file_type or 'image/jpeg'
+                        
+                        # 构建data URL
+                        image_data_url = f"data:{mime_type};base64,{image_base64}"
+                        
+                        content_parts.append({
+                            'type': 'image_url',
+                            'image_url': {
+                                'url': image_data_url
+                            }
+                        })
+                    finally:
+                        db.close()
+                except Exception as e:
+                    print(f"Error processing image {image_file_id}: {e}")
+                    # 图片处理失败，跳过该图片
+                    continue
+            
+            # 添加多模态消息
+            api_messages.append({
+                'role': 'user',
+                'content': content_parts
+            })
+        else:
+            # 只有文本，使用普通消息格式
+            api_messages.append({
+                'role': 'user',
+                'content': user_content
+            })
         
         # 检查是否需要压缩
         if llm_provider and self.config.LANGCHAIN_COMPRESSION_ENABLED:

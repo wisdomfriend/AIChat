@@ -891,13 +891,12 @@
                     })
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
+                // 统一读取响应体，无论状态码如何，都尝试解析SSE格式的错误信息
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let buffer = '';
+                let hasErrorFromSSE = false;
+                let errorMessage = null;
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -924,6 +923,26 @@
                             try {
                                 const data = JSON.parse(dataStr);
                                 
+                                // 优先处理错误信息（包括429限流错误）
+                                if (data.type === 'error') {
+                                    hasErrorFromSSE = true;
+                                    errorMessage = data.message || '未知错误';
+                                    // 显示错误信息
+                                    if (aiMessageDiv) {
+                                        addMessage('错误: ' + errorMessage, false, null, aiMessageDiv);
+                                    } else {
+                                        addMessage('错误: ' + errorMessage, false);
+                                    }
+                                    tokenInfo.textContent = '请求失败';
+                                    // 继续读取直到流结束，确保资源正确释放
+                                    continue;
+                                }
+                                
+                                // 如果已经遇到错误，不再处理其他类型的数据
+                                if (hasErrorFromSSE) {
+                                    continue;
+                                }
+                                
                                 if (data.type === 'session_id') {
                                     // 收到新会话ID
                                     currentSessionId = data.session_id;
@@ -946,16 +965,6 @@
                                 } else if (data.type === 'usage') {
                                     // 保存usage信息，最后显示
                                     usage = data.usage;
-                                } else if (data.type === 'error') {
-                                    // 显示错误
-                                    if (aiMessageDiv) {
-                                        // 如果已经有消息，更新它显示错误
-                                        addMessage('错误: ' + (data.message || '未知错误'), false, null, aiMessageDiv);
-                                    } else {
-                                        addMessage('错误: ' + (data.message || '未知错误'), false);
-                                    }
-                                    tokenInfo.textContent = '请求失败';
-                                    // 不return，让流正常结束，finally块会执行
                                 } else if (data.type === 'search_start') {
                                     // 搜索开始
                                     tokenInfo.textContent = data.message || '正在搜索...';
@@ -1043,6 +1052,17 @@
                             }
                         }
                     }
+                }
+                
+                // 如果从SSE中获取到了错误信息，已经显示过了，直接返回
+                if (hasErrorFromSSE) {
+                    removeLoading();
+                    return;
+                }
+                
+                // 如果响应状态码不是200，但没有从SSE中获取到错误信息，抛出HTTP错误
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
                 // 流式响应正常结束，如果没有收到done信号，也处理一下

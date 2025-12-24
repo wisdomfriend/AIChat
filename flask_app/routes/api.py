@@ -2,7 +2,7 @@
 import json
 import os
 from flask import Blueprint, Response, request, stream_with_context, jsonify, send_file
-from ..utils import get_current_user
+from ..utils import get_current_user, rate_limit_chat
 from ..services import ChatService, FileService, LLMService
 from ..config import Config
 from ..database import get_session
@@ -124,6 +124,7 @@ def test_auth():
 
 
 @api_bp.route('/chat', methods=['POST'])
+@rate_limit_chat
 def api_chat():
     """
     流式聊天API (SSE) - 支持会话和文件

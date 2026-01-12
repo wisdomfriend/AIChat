@@ -729,8 +729,8 @@ body {
 }
 
 .model-selector {
-    flex: 1;
-    max-width: 200px;
+    width: 150px;
+    min-width: 120px;
     height: 36px;
     padding: 8px 12px;
     background: rgba(255, 255, 255, 0.05);

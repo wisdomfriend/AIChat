@@ -108,28 +108,6 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="invite_code">邀请码</label>
-                        <div class="input-wrapper">
-                            <svg class="input-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                                <path d="M10 2C5.58172 2 2 4.79086 2 8C2 11.2091 5.58172 14 10 14C10.3387 14 10.6717 13.9797 11 13.9403C11.8594 14.6274 12.8826 15 14 15C16.7614 15 19 12.7614 19 10C19 7.23858 16.7614 5 14 5C13.5858 5 13.1849 5.05865 12.803 5.17071C12.0527 3.45508 10.1885 2 10 2ZM10 4C13.3137 4 16 5.68629 16 8C16 10.3137 13.3137 12 10 12C6.68629 12 4 10.3137 4 8C4 5.68629 6.68629 4 10 4Z" fill="currentColor"/>
-                            </svg>
-                            <input 
-                                type="text" 
-                                id="invite_code" 
-                                name="invite_code" 
-                                class="form-input" 
-                                placeholder="请输入邀请码（4位数字）" 
-                                required
-                                minlength="4"
-                                maxlength="4"
-                                pattern="[0-9]{4}"
-                                autocomplete="off"
-                            >
-                        </div>
-                        <small class="form-hint">请输入正确的邀请码才能完成注册</small>
-                    </div>
-
                     <button type="submit" class="login-button" id="registerButton">
                         <span class="button-text">注册</span>
                         <svg class="button-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -165,14 +143,6 @@
             if (password !== passwordConfirm) {
                 e.preventDefault();
                 alert('两次输入的密码不一致！');
-                return false;
-            }
-            
-            // 验证邀请码格式（4位数字）
-            const inviteCode = document.getElementById('invite_code').value;
-            if (!/^\d{4}$/.test(inviteCode)) {
-                e.preventDefault();
-                alert('邀请码必须是4位数字！');
                 return false;
             }
             

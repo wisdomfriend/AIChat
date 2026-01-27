@@ -55,10 +55,9 @@ def register():
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         password_confirm = request.form.get('password_confirm', '')
-        invite_code = request.form.get('invite_code', '').strip()
         
         auth_service = AuthService()
-        result = auth_service.register(username, password, password_confirm, invite_code)
+        result = auth_service.register(username, password, password_confirm)
         
         if result['success']:
             flash('注册成功！请登录', 'success')

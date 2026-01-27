@@ -85,21 +85,7 @@ class AuthService:
             db.close()
     
     @staticmethod
-    def _generate_invite_code():
-        """
-        生成邀请码：取当前日期的"日"部分的最后一位，重复4次
-        
-        Returns:
-            str: 4位数字的邀请码
-        """
-        today = datetime.now()
-        day = today.day
-        last_digit = str(day)[-1]  # 取日的最后一位数字
-        invite_code = last_digit * 4  # 重复4次
-        return invite_code
-    
-    @staticmethod
-    def register(username, password, password_confirm=None, invite_code=None):
+    def register(username, password, password_confirm=None):
         """
         用户注册
         
@@ -107,31 +93,12 @@ class AuthService:
             username: 用户名
             password: 密码
             password_confirm: 确认密码（可选，如果提供则验证一致性）
-            invite_code: 邀请码（必填）
         
         Returns:
             dict: 包含success和message的字典
         """
         db = get_session()
         try:
-            # 0. 验证邀请码
-            if not invite_code or len(invite_code.strip()) == 0:
-                return {
-                    'success': False,
-                    'message': '邀请码不能为空！'
-                }
-            
-            invite_code = invite_code.strip()
-            
-            # 生成正确的邀请码
-            correct_invite_code = AuthService._generate_invite_code()
-            
-            if invite_code != correct_invite_code:
-                return {
-                    'success': False,
-                    'message': '邀请码错误，请检查后重试！'
-                }
-            
             # 1. 验证用户名
             if not username or len(username.strip()) == 0:
                 return {

@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import urllib.parse
 from typing import List, Dict
+import time
 from ..config import Config
 
 
@@ -11,13 +12,10 @@ class BaiduSearchService:
     
     def __init__(self, config: Config = None):
         self.config = config or Config()
-        self.api_key = self.config.BAIDU_SEARCH_API_KEY
-        self.api_url = self.config.BAIDU_SEARCH_API_URL
-        self.use_api = bool(self.api_key and self.api_url)
         # 使用 Session 来保持 Cookie，模拟浏览器行为
         self.session = requests.Session()
-        # 初始化时访问一次首页获取 Cookie
-        self._init_session()
+        # 延迟初始化：不在 __init__ 中立即访问百度，而是在第一次使用时再初始化
+        self._session_initialized = False
     
     def search(self, query: str, num_results: int = 3) -> str:
         """
@@ -31,12 +29,11 @@ class BaiduSearchService:
             格式化的搜索结果文本
         """
         try:
-            if self.use_api:
-                # 使用百度智能云 API（如果配置了）
-                results = self._search_with_api(query, num_results)
-            else:
-                # 使用爬取方式（免费）
-                results = self._search_with_scraping(query, num_results)
+            # 确保会话已初始化（延迟初始化）
+            self._ensure_session_initialized()
+            
+            # 使用爬取方式搜索
+            results = self._search_with_scraping(query, num_results)
             
             if not results:
                 return "未找到相关搜索结果。"
@@ -56,28 +53,89 @@ class BaiduSearchService:
             print(f"Baidu search error: {e}")
             return f"搜索过程中出现错误: {str(e)}"
     
-    def _init_session(self):
-        """初始化会话，访问首页获取 Cookie"""
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-                'Accept-Encoding': 'gzip, deflate, br, zstd',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-            }
-            # 访问首页获取 Cookie
-            self.session.get('https://www.baidu.com', headers=headers, timeout=10)
-        except Exception as e:
-            print(f"Init session error: {e}")
+    def _ensure_session_initialized(self):
+        """
+        确保会话已初始化（延迟初始化）
+        只在第一次使用时才访问百度首页获取 Cookie
+        """
+        if self._session_initialized:
+            return
+        
+        # 尝试初始化，只有成功时才标记为已初始化
+        if self._init_session():
+            self._session_initialized = True
     
-    def _search_with_api(self, query: str, num_results: int) -> List[Dict]:
-        """使用百度智能云 API 搜索"""
-        # TODO: 实现百度智能云 API 调用
-        # 需要根据百度智能云的实际 API 文档实现
-        # 这里先返回空，等用户配置好 API 后再实现
-        return []
+    def _init_session(self):
+        """
+        初始化会话，访问首页获取 Cookie
+        
+        工作原理：
+        1. 向百度首页发送 GET 请求
+        2. 百度服务器返回响应，并在响应头中设置 Cookie（Set-Cookie）
+        3. requests.Session 自动保存这些 Cookie 到 self.session.cookies
+        4. 后续所有使用 self.session 的请求都会自动携带这些 Cookie
+        
+        常见的百度 Cookie：
+        - BAIDUID: 百度用户唯一标识
+        - BIDUPSID: 百度 ID
+        - PSTM: 首次访问时间戳
+        - H_PS_PSSID: 会话 ID
+        
+        这样做的好处：
+        - 模拟真实浏览器行为，降低被反爬虫系统识别的风险
+        - 服务器可能根据 Cookie 判断是否为正常访问
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # 增加重试机制
+        max_retries = 2
+        retry_delay = 1  # 秒
+        
+        for attempt in range(max_retries):
+            try:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                    'Accept-Encoding': 'gzip, deflate, br, zstd',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                }
+                # 访问首页获取 Cookie，增加超时时间到15秒
+                # 服务器返回的 Cookie 会被自动保存到 self.session.cookies 中
+                response = self.session.get('https://www.baidu.com', headers=headers, timeout=15)
+                
+                # 如果成功，返回 True
+                if response.status_code == 200:
+                    # 可选：打印获取到的 Cookie（用于调试）
+                    # logger.debug(f"获取到的 Cookie 数量: {len(self.session.cookies)}")
+                    return True
+                else:
+                    logger.warning(f"百度首页返回状态码: {response.status_code}")
+                    
+            except requests.exceptions.Timeout:
+                if attempt < max_retries - 1:
+                    logger.debug(f"百度搜索服务初始化超时，正在重试 ({attempt + 1}/{max_retries})...")
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    logger.warning("百度搜索服务初始化超时（不影响其他功能）")
+            except requests.exceptions.ConnectionError as e:
+                if attempt < max_retries - 1:
+                    logger.debug(f"百度搜索服务连接失败，正在重试 ({attempt + 1}/{max_retries}): {e}")
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    # 连接错误（包括连接重置）不影响其他功能，只记录警告
+                    logger.warning(f"百度搜索服务初始化失败（不影响其他功能）: {e}")
+            except Exception as e:
+                # 其他异常也只记录警告，不影响其他功能
+                logger.warning(f"百度搜索服务初始化失败（不影响其他功能）: {e}")
+                break
+        
+        # 所有重试都失败，返回 False
+        return False
     
     def _search_with_scraping(self, query: str, num_results: int) -> List[Dict]:
         """使用百度网页端搜索（桌面端HTML解析）"""

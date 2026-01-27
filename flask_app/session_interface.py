@@ -111,13 +111,16 @@ class FixedRedisSessionInterface(RedisSessionInterface):
                 max_age = getattr(self, 'permanent_session_lifetime', None) or app.permanent_session_lifetime
                 unsigned_sid = self.signer.unsign(sid, max_age=max_age)
                 if unsigned_sid is None:
-                    # 签名验证失败，返回空session
-                    return self.session_class()
-                sid = self._ensure_string_sid(unsigned_sid)
+                    # 签名验证失败，尝试直接使用原始值（向后兼容未签名的旧Cookie）
+                    logger.warning(f"Session签名验证失败，尝试使用原始值: {sid[:50]}")
+                    # 不返回空session，继续使用原始sid尝试从Redis读取
+                    # 这样可以兼容旧的未签名Cookie
+                else:
+                    sid = self._ensure_string_sid(unsigned_sid)
             except Exception as e:
-                # 签名验证异常，返回空session
-                logger.debug(f"Session签名验证失败: {str(e)}")
-                return self.session_class()
+                # 签名验证异常，尝试直接使用原始值（向后兼容）
+                logger.warning(f"Session签名验证异常: {str(e)}，尝试使用原始值: {sid[:50]}")
+                # 不返回空session，继续使用原始sid尝试从Redis读取
         
         # 如果sid为None或空，返回空session
         if not sid:

@@ -195,3 +195,5 @@ docs/
 
 # 证书文件
 ssl
+
+flask_session

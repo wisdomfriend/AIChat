@@ -16,10 +16,12 @@ MYSQL_CONTAINER="mysql-db"
 MYSQL_DATABASE="nginx_shop"
 MYSQL_USER="guopengfei_learning"
 MYSQL_PASSWORD="Gpf_learning"
-MYSQL_ROOT_PASSWORD="rootpassword"
+MYSQL_ROOT_PASSWORD="rootpassword-new123"
 REDIS_CONTAINER="redis-cache"
 REDIS_PASSWORD="Gpf_learning"
 REDIS_DATA_DIR="/data"
+
+# docker exec -it mysql-db mysql -u root -prootpassword -e "ALTER USER 'root'@'%' IDENTIFIED BY 'rootpassword-new123'; ALTER USER 'root'@'localhost' IDENTIFIED BY 'rootpassword-new123'; FLUSH PRIVILEGES;"
 
 # 显示帮助信息
 show_help() {

@@ -3,6 +3,7 @@ import json
 import asyncio
 import traceback
 from datetime import datetime
+from sqlalchemy import func
 from ..database import get_session
 from ..models import ApiKey, TokenUsage, ChatSession, ChatMessage
 from ..config import Config
@@ -130,16 +131,70 @@ class ChatService:
             ).order_by(
                 ChatSession.updated_at.desc()
             ).limit(limit).all()
+
+            session_ids = [s.id for s in sessions]
+            message_count_map = {}
+            if session_ids:
+                message_counts = db.query(
+                    ChatMessage.session_id,
+                    func.count(ChatMessage.id)
+                ).filter(
+                    ChatMessage.session_id.in_(session_ids)
+                ).group_by(
+                    ChatMessage.session_id
+                ).all()
+                message_count_map = {sid: count for sid, count in message_counts}
             
             return [{
                 'id': s.id,
                 'title': s.title,
                 'created_at': s.created_at.isoformat() if s.created_at else None,
-                'updated_at': s.updated_at.isoformat() if s.updated_at else None
+                'updated_at': s.updated_at.isoformat() if s.updated_at else None,
+                'message_count': message_count_map.get(s.id, 0)
             } for s in sessions]
         except Exception as e:
             print(f"Get sessions error: {e}")
             return []
+        finally:
+            db.close()
+
+    def get_latest_session_id(self, user_id, prefer_non_empty=True):
+        """获取用户最近会话ID
+
+        Args:
+            user_id: 用户ID
+            prefer_non_empty: 是否优先返回有消息的会话
+
+        Returns:
+            会话ID或None
+        """
+        db = get_session()
+        try:
+            if prefer_non_empty:
+                latest_non_empty = db.query(ChatSession.id).join(
+                    ChatMessage,
+                    ChatMessage.session_id == ChatSession.id
+                ).filter(
+                    ChatSession.user_id == user_id
+                ).group_by(
+                    ChatSession.id
+                ).order_by(
+                    ChatSession.updated_at.desc()
+                ).first()
+
+                if latest_non_empty:
+                    return latest_non_empty[0]
+
+            latest_session = db.query(ChatSession.id).filter(
+                ChatSession.user_id == user_id
+            ).order_by(
+                ChatSession.updated_at.desc()
+            ).first()
+
+            return latest_session[0] if latest_session else None
+        except Exception as e:
+            print(f"Get latest session id error: {e}")
+            return None
         finally:
             db.close()
     

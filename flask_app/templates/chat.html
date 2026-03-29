@@ -74,6 +74,24 @@
         <!-- 主聊天区域 -->
         <main class="chat-main">
             <div class="chat-messages" id="chatMessages">
+                {% if initial_session_id %}
+                <div class="welcome-screen">
+                    <div class="welcome-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <circle cx="32" cy="32" r="30" stroke="url(#gradient)" stroke-width="2"/>
+                            <path d="M32 16L20 22V32C20 38.6274 25.3726 44 32 44C38.6274 44 44 38.6274 44 32V22L32 16Z" fill="url(#gradient)"/>
+                            <defs>
+                                <linearGradient id="gradient" x1="0" y1="0" x2="64" y2="64">
+                                    <stop stop-color="#667eea"/>
+                                    <stop offset="1" stop-color="#764ba2"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <h1>正在恢复最近对话...</h1>
+                    <p>请稍候，正在加载你的上一次聊天内容。</p>
+                </div>
+                {% else %}
                 <div class="welcome-screen">
                     <div class="welcome-icon">
                         <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
@@ -90,6 +108,7 @@
                     <h1>欢迎使用 AIChat</h1>
                     <p>我是您的AI助手，可以回答各种问题。请在下方输入您的问题开始对话。</p>
                 </div>
+                {% endif %}
             </div>
 
             <div class="chat-input-area">
@@ -190,6 +209,49 @@
         
         // 当前会话ID
         let currentSessionId = null;
+        const initialSessionId = {{ initial_session_id | tojson }};
+        const NEW_CHAT_DRAFT_KEY = 'chat_force_new_draft';
+        function isNewChatDraftMode() {
+            try {
+                return sessionStorage.getItem(NEW_CHAT_DRAFT_KEY) === '1';
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function setNewChatDraftMode(enabled) {
+            try {
+                if (enabled) {
+                    sessionStorage.setItem(NEW_CHAT_DRAFT_KEY, '1');
+                } else {
+                    sessionStorage.removeItem(NEW_CHAT_DRAFT_KEY);
+                }
+            } catch (e) {
+                // 忽略 sessionStorage 异常（如隐私模式限制）
+            }
+        }
+
+        function renderWelcomeScreen() {
+            chatMessages.innerHTML = `
+                <div class="welcome-screen">
+                    <div class="welcome-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <circle cx="32" cy="32" r="30" stroke="url(#gradient)" stroke-width="2"/>
+                            <path d="M32 16L20 22V32C20 38.6274 25.3726 44 32 44C38.6274 44 44 38.6274 44 32V22L32 16Z" fill="url(#gradient)"/>
+                            <defs>
+                                <linearGradient id="gradient" x1="0" y1="0" x2="64" y2="64">
+                                    <stop stop-color="#667eea"/>
+                                    <stop offset="1" stop-color="#764ba2"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <h1>欢迎使用 AIChat</h1>
+                    <p>我是您的AI助手，可以回答各种问题。请在下方输入您的问题开始对话。</p>
+                </div>
+            `;
+        }
+
         
         // 已选择的文件（存储上传后的文件信息）
         let selectedFiles = [];
@@ -946,6 +1008,8 @@
                                 if (data.type === 'session_id') {
                                     // 收到新会话ID
                                     currentSessionId = data.session_id;
+                                    // 新对话已真正创建，取消“新对话草稿态”
+                                    setNewChatDraftMode(false);
                                     updateSessionsSelection();
                                     // 重新加载会话列表
                                     loadSessions();
@@ -1187,42 +1251,67 @@
         // 清空聊天，创建新会话
         function clearChat() {
             currentSessionId = null;
-            chatMessages.innerHTML = `
-                <div class="welcome-screen">
-                    <div class="welcome-icon">
-                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                            <circle cx="32" cy="32" r="30" stroke="url(#gradient)" stroke-width="2"/>
-                            <path d="M32 16L20 22V32C20 38.6274 25.3726 44 32 44C38.6274 44 44 38.6274 44 32V22L32 16Z" fill="url(#gradient)"/>
-                            <defs>
-                                <linearGradient id="gradient" x1="0" y1="0" x2="64" y2="64">
-                                    <stop stop-color="#667eea"/>
-                                    <stop offset="1" stop-color="#764ba2"/>
-                                </linearGradient>
-                            </defs>
-                        </svg>
-                    </div>
-                    <h1>欢迎使用 AIChat</h1>
-                    <p>我是您的AI助手，可以回答各种问题。请在下方输入您的问题开始对话。</p>
-                </div>
-            `;
+            // 标记“新对话草稿态”，刷新后仍保持新对话界面
+            setNewChatDraftMode(true);
+            renderWelcomeScreen();
             tokenInfo.textContent = '';
             // 更新会话列表选中状态
             updateSessionsSelection();
         }
         
         // 加载会话列表
-        async function loadSessions() {
+        async function loadSessions(autoOpen = true) {
             try {
                 const response = await fetch('/api/sessions');
                 if (!response.ok) {
                     throw new Error('获取会话列表失败');
                 }
                 const data = await response.json();
-                renderSessions(data.sessions || []);
+                const sessions = data.sessions || [];
+                renderSessions(sessions);
+
+                if (!autoOpen) {
+                    return;
+                }
+
+                // 首次进入聊天页时，优先打开最近有消息的会话
+                if (!currentSessionId && sessions.length > 0) {
+                    await autoOpenMostRecentNonEmptySession(sessions);
+                    return;
+                }
+
+                // 若当前会话已不存在，回退到最近会话
+                if (currentSessionId && sessions.length > 0) {
+                    const exists = sessions.some(s => s.id === currentSessionId);
+                    if (!exists) {
+                        await autoOpenMostRecentNonEmptySession(sessions);
+                    }
+                }
             } catch (error) {
                 console.error('Load sessions error:', error);
                 sessionsList.innerHTML = '<div class="sessions-error">加载失败</div>';
             }
+        }
+
+        // 自动打开最近的“有消息”会话；如果都为空则打开最新会话
+        async function autoOpenMostRecentNonEmptySession(sessions) {
+            for (const session of sessions) {
+                try {
+                    const resp = await fetch(`/api/sessions/${session.id}/messages`);
+                    if (!resp.ok) continue;
+                    const data = await resp.json();
+                    const messages = data.messages || [];
+                    if (messages.length > 0) {
+                        await loadSession(session.id);
+                        return;
+                    }
+                } catch (err) {
+                    console.error('Auto open session check error:', err);
+                }
+            }
+
+            // 所有会话都无消息时，回退到最新会话
+            await loadSession(sessions[0].id);
         }
         
         // 渲染会话列表
@@ -1246,6 +1335,8 @@
         async function loadSession(sessionId) {
             try {
                 currentSessionId = sessionId;
+                // 进入具体会话后，退出“新对话草稿态”
+                setNewChatDraftMode(false);
                 updateSessionsSelection();
                 
                 const response = await fetch(`/api/sessions/${sessionId}/messages`);
@@ -1271,24 +1362,7 @@
                 
                 // 如果没有消息，显示欢迎界面
                 if (messages.length === 0) {
-                    chatMessages.innerHTML = `
-                        <div class="welcome-screen">
-                            <div class="welcome-icon">
-                                <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                                    <circle cx="32" cy="32" r="30" stroke="url(#gradient)" stroke-width="2"/>
-                                    <path d="M32 16L20 22V32C20 38.6274 25.3726 44 32 44C38.6274 44 44 38.6274 44 32V22L32 16Z" fill="url(#gradient)"/>
-                                    <defs>
-                                        <linearGradient id="gradient" x1="0" y1="0" x2="64" y2="64">
-                                            <stop stop-color="#667eea"/>
-                                            <stop offset="1" stop-color="#764ba2"/>
-                                        </linearGradient>
-                                    </defs>
-                                </svg>
-                            </div>
-                            <h1>欢迎使用 AIChat</h1>
-                            <p>我是您的AI助手，可以回答各种问题。请在下方输入您的问题开始对话。</p>
-                        </div>
-                    `;
+                    renderWelcomeScreen();
                 }
                 
                 scrollToBottom();
@@ -1337,10 +1411,25 @@
         }
 
         // 页面加载完成后聚焦输入框并加载会话列表
-        window.addEventListener('load', function() {
+        window.addEventListener('load', async function() {
             loadLlmProviders();  // 加载模型列表
             messageInput.focus();
-            loadSessions();       // 加载会话列表
+
+            // 若用户停留在“新对话草稿态”，刷新后仍保持新对话界面
+            if (isNewChatDraftMode()) {
+                currentSessionId = null;
+                renderWelcomeScreen();
+                await loadSessions(false);
+                return;
+            }
+
+            // 首屏由后端提供默认会话ID，确保登录后打开上次最近聊天
+            if (initialSessionId) {
+                await loadSessions(false);
+                await loadSession(initialSessionId);
+            } else {
+                await loadSessions(); // 无默认会话时走前端兜底逻辑
+            }
         });
     </script>
 </body>

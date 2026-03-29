@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from ..database import get_session
 from ..models import User
 
+
 class AuthService:
     """认证相关业务逻辑"""
     

@@ -11,8 +11,30 @@
 """
 import os
 import logging
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+FLASK_APP_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = FLASK_APP_DIR.parent
+DEFAULT_LOG_DIR = PROJECT_ROOT / "logs"
+
+
+def allowed_origins() -> list[str]:
+    """读取 CORS 允许的前端来源列表。"""
+    configured = os.environ.get(
+        "CORS_ALLOW_ORIGINS",
+        "http://127.0.0.1:5173,http://localhost:5173",
+    )
+    return [item.strip() for item in configured.split(",") if item.strip()]
+
+
+def resolve_log_dir() -> Path:
+    """解析应用日志存储目录。"""
+    env_dir = os.environ.get("LOG_DIR", "").strip()
+    if env_dir:
+        return Path(env_dir).expanduser().resolve()
+    return DEFAULT_LOG_DIR
 
 
 class Config:

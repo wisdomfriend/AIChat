@@ -3,9 +3,11 @@
 启动流程（按初始化顺序）：
 1) 创建 Flask 实例并加载配置
 2) 初始化 Redis Session 存储（失败则回退文件系统 Session）
-3) `init_db()`  确保数据库连接可用
-4) 注册静态文件哈希处理与全部路由
-5) 初始化 Swagger API 文档（/api-docs）
+3) `register_request_logging()`  注册请求日志
+4) `init_db()`  确保数据库连接可用
+5) `register_error_handlers()` / `register_cors()`  统一异常与跨域
+6) 注册静态文件哈希处理与全部路由
+7) 初始化 Swagger API 文档（/api-docs）
 """
 import logging
 
@@ -15,6 +17,7 @@ import redis
 
 from .config import create_config
 from .database import init_db
+from .middleware import register_cors, register_error_handlers, register_request_logging
 from .routes import register_routes
 from .session_interface import FixedRedisSessionInterface
 from .utils import get_static_file_hash
@@ -80,12 +83,17 @@ def create_app(config_name='default'):
         Session(app)
         logger.info("使用默认文件系统Session")
     
+    register_request_logging(app)
+
     # 初始化数据库
     try:
         init_db()
     except Exception as e:
         logger.error(f"数据库初始化失败: {str(e)}", exc_info=True)
         # 不抛出异常，允许应用启动，但会在实际使用时失败
+
+    register_error_handlers(app)
+    register_cors(app)
     
     # 注册模板过滤器：用于生成带哈希的静态文件URL
     @app.template_filter('static_hash')

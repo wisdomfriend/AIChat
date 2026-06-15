@@ -54,8 +54,6 @@ services:
       MYSQL_USER: guopengfei_learning
       MYSQL_PASSWORD: Gpf_learning
       TZ: Asia/Shanghai
-    ports:
-     - "23306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql:/docker-entrypoint-initdb.d
@@ -72,8 +70,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis-cache
-    #ports:
-    #  - "6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped

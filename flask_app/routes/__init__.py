@@ -17,8 +17,9 @@ def register_routes(app):
     - 调用方: `flask_app.create_app()` 应用工厂
     - `api_bp` 挂载前缀 `/api`，其余 Blueprint 无前缀
     """
-    from . import admin, api, auth, chat, dashboard
+    from . import admin, api, auth, chat, dashboard, health
 
+    app.register_blueprint(health.health_bp)
     app.register_blueprint(auth.auth_bp)
     app.register_blueprint(chat.chat_bp)
     app.register_blueprint(dashboard.dashboard_bp)

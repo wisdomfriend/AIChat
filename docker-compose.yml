@@ -26,8 +26,6 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: flask-app
-    #ports:
-    #  - "5000:5000"
     volumes:
       # 挂载项目源码，便于本地改代码后容器内即时生效
       - ./:/app

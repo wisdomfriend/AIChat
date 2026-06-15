@@ -1,18 +1,28 @@
-"""管理页面路由"""
-from flask import Blueprint, render_template, redirect, url_for, flash, jsonify, request
-from ..utils import get_current_user, require_login, require_admin
-from ..services import StatsService
-from ..database import get_session
-from ..models import ApiKey
+"""管理页面路由。
 
-# 创建蓝图
+页面总览：
+1) 管理后台
+   - GET `/admin`  全局统计与最近 API 用量（需 admin）
+"""
+from flask import Blueprint, flash, redirect, render_template, url_for
+
+from ..services import StatsService
+from ..utils import get_current_user, require_admin
+
 admin_bp = Blueprint('admin', __name__)
 
 
 @admin_bp.route('/admin')
 @require_admin
 def admin():
-    """管理页面"""
+    """渲染管理后台页面，展示全局统计与最近用量。
+
+    用法:
+    - 方法/路径: `GET /admin`
+    - 认证: Session Cookie，需 admin 权限
+    - 模板变量: `user`、`stats`、`recent_usage`
+    - 加载失败: flash 错误信息，302 跳转 `/dashboard`
+    """
     user = get_current_user()
 
     try:
@@ -27,5 +37,3 @@ def admin():
         print(f"Admin error: {e}")
         flash('加载管理页面时出错', 'error')
         return redirect(url_for('dashboard.dashboard'))
-
-

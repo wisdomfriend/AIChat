@@ -1,24 +1,49 @@
-"""API路由"""
+"""REST API 路由。
+
+接口总览（按常见调用流程）：
+1) 认证调试
+   - GET `/api/test-auth`  检查 Session 认证状态（需登录）
+2) 聊天
+   - POST `/api/chat`  发送消息，SSE 流式响应（需登录，有限流）
+3) 会话管理
+   - GET `/api/sessions`  获取当前用户会话列表（需登录）
+   - GET `/api/sessions/<session_id>/messages`  获取会话消息（需登录）
+4) 文件管理
+   - POST `/api/files`  上传文件（需登录）
+   - GET `/api/files`  获取用户文件列表（需登录）
+   - GET `/api/files/<file_id>`  获取文件详情（需登录）
+   - DELETE `/api/files/<file_id>`  删除文件（需登录）
+   - GET `/api/files/<file_id>/image`  获取图片预览（需登录）
+   - GET `/api/files/supported`  获取支持的文件扩展名（无需登录）
+5) 模型
+   - GET `/api/llm/providers`  获取可用 LLM 提供商（需登录）
+"""
 import json
 import os
-from flask import Blueprint, Response, request, stream_with_context, jsonify, send_file
-from ..utils import get_current_user, rate_limit_chat
-from ..services import ChatService, FileService, LLMService
+
+from flask import Blueprint, Response, jsonify, request, send_file, stream_with_context
+
 from ..config import Config
 from ..database import get_session
 from ..models import UploadedFile
+from ..services import ChatService, FileService, LLMService
+from ..utils import get_current_user, rate_limit_chat
 
-# 创建蓝图
 api_bp = Blueprint('api', __name__)
 
 
 @api_bp.route('/test-auth', methods=['GET'])
 def test_auth():
-    """
-    测试认证状态
+    """调试当前 Session 认证状态（开发用）。
+
+    用法:
+    - 方法/路径: `GET /api/test-auth`
+    - 认证: Session Cookie
+    - 成功响应: `{ "authenticated": bool, "user": {...}, "cookies": {...}, ... }`
+    - 失败响应: 500 服务器内部错误
     ---
     tags:
-      - 聊天
+      - 认证
     summary: 测试当前用户的认证状态
     description: 用于调试，检查当前请求是否包含有效的 Session Cookie
     produces:
@@ -126,8 +151,14 @@ def test_auth():
 @api_bp.route('/chat', methods=['POST'])
 @rate_limit_chat
 def api_chat():
-    """
-    流式聊天API (SSE) - 支持会话和文件
+    """发送聊天消息，返回 SSE 流式响应。
+
+    用法:
+    - 方法/路径: `POST /api/chat`
+    - 认证: Session Cookie
+    - 请求体: `{ "message": "...", "session_id": 1, "file_ids": [], "llm_provider": "...", "agent_mode": "normal" }`
+    - 成功响应: `text/event-stream`，事件 `{ "type": "chunk"|"end"|"error", ... }`
+    - 失败响应: 401 未登录；400 参数错误；429 访问过于频繁
     ---
     tags:
       - 聊天
@@ -282,8 +313,13 @@ def api_chat():
 
 @api_bp.route('/sessions', methods=['GET'])
 def get_sessions():
-    """
-    获取用户的会话列表
+    """获取当前用户的全部聊天会话。
+
+    用法:
+    - 方法/路径: `GET /api/sessions`
+    - 认证: Session Cookie
+    - 成功响应: `{ "sessions": [...] }`
+    - 失败响应: 401 未登录；500 获取失败
     ---
     tags:
       - 会话
@@ -360,8 +396,13 @@ def get_sessions():
 
 @api_bp.route('/sessions/<int:session_id>/messages', methods=['GET'])
 def get_session_messages(session_id):
-    """
-    获取会话的所有消息
+    """获取指定会话的全部消息（含附件信息）。
+
+    用法:
+    - 方法/路径: `GET /api/sessions/<session_id>/messages`
+    - 认证: Session Cookie
+    - 成功响应: `{ "messages": [...] }`
+    - 失败响应: 401 未登录；404 会话不存在或无权限；500 获取失败
     ---
     tags:
       - 会话
@@ -471,8 +512,14 @@ def get_session_messages(session_id):
 
 @api_bp.route('/files', methods=['POST'])
 def upload_file():
-    """
-    上传文件
+    """上传文件到服务器。
+
+    用法:
+    - 方法/路径: `POST /api/files`
+    - 认证: Session Cookie
+    - 请求体: `multipart/form-data`，字段 `file`
+    - 成功响应: `{ "success": true, "file_id": 1, "filename": "...", ... }`
+    - 失败响应: 401 未登录；400 无文件或格式错误；500 上传失败
     ---
     tags:
       - 文件
@@ -575,8 +622,13 @@ def upload_file():
 
 @api_bp.route('/files', methods=['GET'])
 def get_files():
-    """
-    获取用户的文件列表
+    """获取当前用户上传的全部文件。
+
+    用法:
+    - 方法/路径: `GET /api/files`
+    - 认证: Session Cookie
+    - 成功响应: `{ "files": [...] }`
+    - 失败响应: 401 未登录；500 获取失败
     ---
     tags:
       - 文件
@@ -652,8 +704,13 @@ def get_files():
 
 @api_bp.route('/files/<int:file_id>', methods=['GET'])
 def get_file(file_id):
-    """
-    获取文件信息
+    """获取指定文件的详细信息。
+
+    用法:
+    - 方法/路径: `GET /api/files/<file_id>`
+    - 认证: Session Cookie
+    - 成功响应: `{ "id": 1, "filename": "...", "content_preview": "...", ... }`
+    - 失败响应: 401 未登录；404 文件不存在或无权限；500 获取失败
     ---
     tags:
       - 文件
@@ -739,8 +796,13 @@ def get_file(file_id):
 
 @api_bp.route('/files/<int:file_id>', methods=['DELETE'])
 def delete_file(file_id):
-    """
-    删除文件
+    """删除当前用户拥有的指定文件。
+
+    用法:
+    - 方法/路径: `DELETE /api/files/<file_id>`
+    - 认证: Session Cookie
+    - 成功响应: `{ "success": true }`
+    - 失败响应: 401 未登录；400 文件不存在或无权限；500 删除失败
     ---
     tags:
       - 文件
@@ -808,8 +870,13 @@ def delete_file(file_id):
 
 @api_bp.route('/files/<int:file_id>/image', methods=['GET'])
 def get_image(file_id):
-    """
-    获取图片文件
+    """获取图片文件的二进制内容。
+
+    用法:
+    - 方法/路径: `GET /api/files/<file_id>/image`
+    - 认证: Session Cookie
+    - 成功响应: 图片二进制流（`image/*`）
+    - 失败响应: 401 未登录；404 非图片或文件不存在；500 获取失败
     ---
     tags:
       - 文件
@@ -876,8 +943,12 @@ def get_image(file_id):
 
 @api_bp.route('/files/supported', methods=['GET'])
 def get_supported_extensions():
-    """
-    获取支持的文件类型
+    """获取系统支持的文件扩展名与大小限制（公开接口）。
+
+    用法:
+    - 方法/路径: `GET /api/files/supported`
+    - 认证: 无需登录
+    - 成功响应: `{ "extensions": [...], "max_size_mb": 100 }`
     ---
     tags:
       - 文件
@@ -918,8 +989,13 @@ def get_supported_extensions():
 
 @api_bp.route('/llm/providers', methods=['GET'])
 def get_llm_providers():
-    """
-    获取可用的 LLM 模型提供商列表
+    """获取系统中已配置的 LLM 模型提供商列表。
+
+    用法:
+    - 方法/路径: `GET /api/llm/providers`
+    - 认证: Session Cookie
+    - 成功响应: `{ "providers": [...], "default": "..." }`
+    - 失败响应: 401 未登录；500 获取失败
     ---
     tags:
       - 模型

@@ -1,4 +1,14 @@
-"""应用配置文件"""
+"""应用配置与环境变量。
+
+职责总览：
+1) 基础配置
+   - `Config`  从环境变量读取 MySQL、Redis、Session、LLM、搜索等配置
+2) 环境变体
+   - `DevelopmentConfig`  开发环境（DEBUG=True）
+   - `ProductionConfig`   生产环境（DEBUG=False）
+3) 工厂函数
+   - `create_config()`  按名称创建配置实例（需在 load_dotenv 之后调用）
+"""
 import os
 import logging
 
@@ -6,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class Config:
-    """基础配置"""
+    """基础配置，实例化时从环境变量加载全部运行时参数。"""
     # DeepSeek API配置（固定值，不需要从环境变量读取）
     DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
     
@@ -26,7 +36,13 @@ class Config:
     }
     
     def __init__(self):
-        """初始化配置，从环境变量读取配置值"""
+        """加载环境变量并初始化 LLM、搜索配置。
+
+        用法:
+        - 调用方: `create_config()`、各 Service 直接实例化
+        - 环境变量: `SECRET_KEY`、`MYSQL_*`、`REDIS_*`、`SESSION_LIFETIME`、`LLM_*` 等
+        - 副作用: 调用 `_validate_config()` 校验生产环境必填项
+        """
         # 从环境变量读取配置（此时.env文件应该已经加载）
         self.SECRET_KEY = os.environ.get('SECRET_KEY', 'guopengfei')
         
@@ -147,35 +163,37 @@ class Config:
     
     @property
     def DATABASE_URL(self):
-        """构建数据库连接URL"""
+        """构建 SQLAlchemy MySQL 连接 URL。
+
+        用法:
+        - 调用方: `database.get_database_url()`
+        - 返回值: `mysql+pymysql://user:pass@host:port/db`
+        """
         return f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
 
 
 class DevelopmentConfig(Config):
-    """开发环境配置"""
+    """开发环境配置（DEBUG=True）。"""
     def __init__(self):
         super().__init__()
         self.DEBUG = True
 
 
 class ProductionConfig(Config):
-    """生产环境配置"""
+    """生产环境配置（DEBUG=False）。"""
     def __init__(self):
         super().__init__()
         self.DEBUG = False
 
 
 def create_config(config_name='default'):
-    """
-    配置工厂函数
-    
-    在创建配置实例时读取环境变量，确保.env文件已经加载
-    
-    Args:
-        config_name: 配置名称 ('development', 'production', 'default')
-    
-    Returns:
-        配置类实例
+    """按名称创建配置实例。
+
+    用法:
+    - 调用方: `flask_app.create_app()`
+    - 参数: `config_name` — `development` / `production` / `default`
+    - 返回值: 已加载环境变量的 Config 子类实例
+    - 注意: 需在 `load_dotenv()` 之后调用，否则读不到 `.env`
     """
     config_map = {
         'development': DevelopmentConfig,

@@ -1,22 +1,27 @@
-"""自定义 Memory Store - 基于 MySQL 数据库"""
+"""LangChain 消息历史持久化（MySQL 实现）。
+
+职责总览：
+- `MySQLChatMessageHistory`  实现 `BaseChatMessageHistory`，读写 `chat_messages` 表
+"""
 import json
 from typing import List
+
 from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+
 from ..database import get_session
 from ..models import ChatMessage, ChatSession
 
 
 class MySQLChatMessageHistory(BaseChatMessageHistory):
-    """基于 MySQL 的聊天消息历史存储"""
+    """基于 MySQL 的 LangChain 聊天消息历史，按 session_id + user_id 隔离。"""
     
     def __init__(self, session_id: int, user_id: int):
-        """
-        初始化
-        
-        Args:
-            session_id: 会话ID
-            user_id: 用户ID（用于权限验证）
+        """绑定会话与用户，初始化懒加载消息列表。
+
+        用法:
+        - 调用方: `LangChainMemoryManager`
+        - 参数: `session_id`、`user_id`（用于权限校验）
         """
         self.session_id = session_id
         self.user_id = user_id
@@ -25,7 +30,7 @@ class MySQLChatMessageHistory(BaseChatMessageHistory):
     
     @property
     def messages(self) -> List[BaseMessage]:
-        """获取消息列表（懒加载）"""
+        """获取消息列表（首次访问时从数据库懒加载）。"""
         if not self._loaded:
             self._load_messages()
         return self._messages
@@ -77,11 +82,11 @@ class MySQLChatMessageHistory(BaseChatMessageHistory):
         self._messages.append(message)
     
     def save_message_to_database(self, message: BaseMessage):
-        """
-        保存消息到数据库（业务层使用）
-        
-        Args:
-            message: 消息对象
+        """将单条 LangChain 消息写入 `chat_messages` 表。
+
+        用法:
+        - 调用方: `LangChainMemoryManager.save_context()`
+        - 参数: `HumanMessage` 或 `AIMessage`
         """
         db = get_session()
         try:

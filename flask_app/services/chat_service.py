@@ -1,21 +1,33 @@
-"""聊天服务"""
-import json
+"""聊天 Service — 会话管理与 SSE 流式响应。
+
+职责总览（按聊天流程）：
+1) 会话
+   - `create_session()` / `get_sessions()` / `get_session_messages()`
+   - `get_latest_session_id()` / `update_session_title()`
+2) 消息
+   - `save_message()` / `process_chat_stream_with_session()`
+3) 用量
+   - `save_token_usage()`  记录 Token 消耗
+"""
 import asyncio
+import json
 import traceback
 from datetime import datetime
+
 from sqlalchemy import func
-from ..database import get_session
-from ..models import ApiKey, TokenUsage, ChatSession, ChatMessage
+
 from ..config import Config
+from ..database import get_session
+from ..models import ApiKey, ChatMessage, ChatSession, TokenUsage
+from .agent_service import AgentService
+from .baidu_search_service import BaiduSearchService
 from .file_service import FileService
 from .langchain_memory_manager import LangChainMemoryManager
 from .llm_service import LLMService
-from .baidu_search_service import BaiduSearchService
-from .agent_service import AgentService
 
 
 class ChatService:
-    """聊天相关业务逻辑"""
+    """聊天核心业务：会话 CRUD、多模式流式生成（normal / web_search / react / plan_execute）。"""
     
     def __init__(self):
         self.config = Config()
@@ -24,12 +36,11 @@ class ChatService:
         self.agent_service = AgentService(self.config)
     
     def save_token_usage(self, user_id, usage_data, model_name):
-        """保存token使用记录
-        
-        Args:
-            user_id: 用户ID
-            usage_data: token使用数据
-            model_name: 模型名称
+        """将 LLM 调用的 Token 用量写入 `token_usage` 表。
+
+        用法:
+        - 调用方: 流式聊天结束后
+        - 参数: `user_id`、`usage_data`（prompt/completion/total tokens）、`model_name`
         """
         db = get_session()
         try:
@@ -49,15 +60,12 @@ class ChatService:
             db.close()
     
     def create_session(self, user_id, title=None, llm_provider=None):
-        """创建新的聊天会话
-        
-        Args:
-            user_id: 用户ID
-            title: 会话主题，如果为None则自动生成
-            llm_provider: 模型提供商ID，默认使用配置的默认模型
-            
-        Returns:
-            会话ID
+        """创建新的聊天会话。
+
+        用法:
+        - 调用方: `process_chat_stream_with_session()`（session_id 为空时）
+        - 参数: `user_id`、`title`（默认「新对话」）、`llm_provider`
+        - 返回值: 新会话 ID
         """
         db = get_session()
         try:
@@ -87,13 +95,11 @@ class ChatService:
             db.close()
     
     def save_message(self, session_id, role, content, file_ids=None):
-        """保存聊天消息
-        
-        Args:
-            session_id: 会话ID
-            role: 角色 ('user' 或 'assistant')
-            content: 消息内容
-            file_ids: 关联的文件ID列表
+        """保存单条聊天消息到 `chat_messages` 表。
+
+        用法:
+        - 调用方: 流式聊天过程中
+        - 参数: `session_id`、`role`（user/assistant）、`content`、`file_ids`
         """
         db = get_session()
         try:
@@ -115,14 +121,12 @@ class ChatService:
             db.close()
     
     def get_sessions(self, user_id, limit=50):
-        """获取用户的会话列表
-        
-        Args:
-            user_id: 用户ID
-            limit: 返回数量限制
-            
-        Returns:
-            会话列表
+        """获取用户的会话列表（含消息数）。
+
+        用法:
+        - 调用方: `GET /api/sessions`
+        - 参数: `user_id`、`limit`（默认 50）
+        - 返回值: `[{ id, title, created_at, updated_at, message_count }, ...]`
         """
         db = get_session()
         try:
@@ -159,14 +163,12 @@ class ChatService:
             db.close()
 
     def get_latest_session_id(self, user_id, prefer_non_empty=True):
-        """获取用户最近会话ID
+        """获取用户最近使用的会话 ID。
 
-        Args:
-            user_id: 用户ID
-            prefer_non_empty: 是否优先返回有消息的会话
-
-        Returns:
-            会话ID或None
+        用法:
+        - 调用方: `routes/chat.chat` 初始化页面
+        - 参数: `prefer_non_empty` — True 时优先返回有消息的会话
+        - 返回值: 会话 ID 或 None
         """
         db = get_session()
         try:
@@ -199,15 +201,12 @@ class ChatService:
             db.close()
     
     def get_session_messages(self, session_id, user_id, include_files=False):
-        """获取会话的所有消息
-        
-        Args:
-            session_id: 会话ID
-            user_id: 用户ID（用于验证权限）
-            include_files: 是否包含文件详细信息
-            
-        Returns:
-            消息列表，格式为 [{'role': 'user', 'content': '...', 'files': [...]}, ...]
+        """获取指定会话的全部消息。
+
+        用法:
+        - 调用方: `GET /api/sessions/<id>/messages`
+        - 参数: `session_id`、`user_id`（权限校验）、`include_files`
+        - 返回值: 消息列表；无权限时返回 None
         """
         db = get_session()
         try:
@@ -261,12 +260,11 @@ class ChatService:
             db.close()
     
     def update_session_title(self, session_id, user_id, title):
-        """更新会话主题
-        
-        Args:
-            session_id: 会话ID
-            user_id: 用户ID（用于验证权限）
-            title: 新主题
+        """更新会话标题。
+
+        用法:
+        - 参数: `session_id`、`user_id`（权限校验）、`title`
+        - 返回值: True 成功，False 会话不存在
         """
         db = get_session()
         try:
@@ -288,13 +286,11 @@ class ChatService:
             db.close()
     
     def generate_title_from_message(self, message):
-        """从第一条消息生成会话主题
-        
-        Args:
-            message: 用户的第一条消息
-            
-        Returns:
-            生成的主题（最多30个字符）
+        """从首条用户消息截取会话标题（最多 30 字符）。
+
+        用法:
+        - 调用方: 创建新会话时
+        - 返回值: 标题字符串，空消息时返回「新对话」
         """
         if not message:
             return "新对话"
@@ -306,18 +302,13 @@ class ChatService:
         return title
     
     def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None, llm_provider=None, agent_mode='normal'):
-        """处理带会话的流式聊天请求
-        
-        Args:
-            user_id: 用户ID
-            session_id: 会话ID（如果为None则创建新会话）
-            message: 用户消息
-            file_ids: 附加的文件ID列表
-            llm_provider: 模型提供商ID（可选，不传则使用会话保存的模型）
-            agent_mode: Agent 模式，可选值：'normal'（普通聊天）、'web_search'（联网搜索）、'react'（推理与行动）、'plan_execute'（规划与执行）
-            
-        Yields:
-            SSE格式的数据流
+        """处理带会话的流式聊天，yield SSE 事件。
+
+        用法:
+        - 调用方: `POST /api/chat`
+        - 参数: `user_id`、`session_id`（None 则新建）、`message`、`file_ids`、`llm_provider`
+        - 参数: `agent_mode` — `normal` / `web_search` / `react` / `plan_execute`
+        - 返回值: 生成器，yield `data: {"type": "chunk"|"session_id"|"end"|"error", ...}\n\n`
         """
         try:
             # 如果session_id为None，创建新会话

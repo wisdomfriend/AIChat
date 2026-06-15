@@ -1,15 +1,25 @@
-"""Agent 服务 - 提供 ReAct 和 Plan-and-Execute Agent"""
-import json
+"""Agent Service — ReAct 与 Plan-and-Execute 模式。
+
+职责总览：
+1) 工具注册
+   - `_create_tools()`  计算、时间等 LangChain Tool
+2) Agent 创建
+   - `create_react_agent()`         ReAct 推理-行动循环
+   - `create_plan_execute_agent()`  规划-执行两阶段 Agent
+"""
 import asyncio
+import json
 import threading
 from queue import Queue
-from typing import List, Dict, Optional, AsyncGenerator
+from typing import AsyncGenerator, Dict, List, Optional
+
 from langchain.agents import create_agent
-from langchain_core.tools import Tool, StructuredTool
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.tools import StructuredTool, Tool
 from langchain_experimental.plan_and_execute import PlanAndExecute, load_agent_executor, load_chat_planner
+
 from .agent_tools import calculate, get_time_info
 from .llm_service import LLMService
 
@@ -25,14 +35,14 @@ except ImportError:
 
 
 class AgentService:
-    """Agent 服务类"""
+    """封装 LangChain Agent 创建与流式执行逻辑。"""
     
     def __init__(self, config):
-        """
-        初始化 Agent 服务
-        
-        Args:
-            config: 配置对象
+        """初始化 Agent 服务并注册工具列表。
+
+        用法:
+        - 调用方: `ChatService.__init__()`
+        - 参数: `config` — Config 实例
         """
         self.config = config
         self.llm_service = LLMService(config)
@@ -57,14 +67,12 @@ class AgentService:
         return tools
     
     def create_react_agent(self, provider_id: str):
-        """
-        创建 ReAct Agent
-        
-        Args:
-            provider_id: 模型提供商ID
-            
-        Returns:
-            Agent 包装器实例
+        """创建 ReAct Agent（推理-行动循环）。
+
+        用法:
+        - 调用方: `ChatService._process_agent_chat()`（agent_mode=`react`）
+        - 参数: `provider_id` — LLM 提供商 ID
+        - 返回值: 包装后的 Agent 实例，支持 `invoke()` / 流式回调
         """
         llm = self.llm_service.get_llm(provider_id)
         
@@ -156,14 +164,12 @@ class AgentService:
         return AgentWrapper(agent_graph, self.tools)
     
     def create_plan_execute_agent(self, provider_id: str):
-        """
-        创建 Plan-and-Execute Agent
-        
-        Args:
-            provider_id: 模型提供商ID（此参数保留以保持接口一致性，但实际使用 openai-3.5-turbo）
-            
-        Returns:
-            PlanAndExecute 实例
+        """创建 Plan-and-Execute Agent（规划-执行两阶段）。
+
+        用法:
+        - 调用方: `ChatService._process_agent_chat()`（agent_mode=`plan_execute`）
+        - 参数: `provider_id` — 保留接口一致性，实际固定使用 `openai-3.5-turbo`
+        - 返回值: LangChain `PlanAndExecute` 实例
         """
         # 写死使用 openai-3.5-turbo 模型（支持 stop 参数） TODO gpt-5.2 不支持这个参数
         llm = self.llm_service.get_llm('openai-3.5-turbo')

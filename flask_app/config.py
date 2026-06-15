@@ -32,6 +32,7 @@ class Config:
         
         # 数据库配置
         self.MYSQL_HOST = os.environ.get('MYSQL_HOST', 'mysql')
+        self.MYSQL_PORT = int(os.environ.get('MYSQL_PORT', '23306'))
         self.MYSQL_USER = os.environ.get('MYSQL_USER', 'guopengfei')
         self.MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'guopengfei')
         self.MYSQL_DB = os.environ.get('MYSQL_DB', 'flask_app')
@@ -105,9 +106,9 @@ class Config:
                 'type': 'openai_compatible',
                 'base_url': 'https://api.openai.com/v1',
                 'api_key': os.environ.get('OPENAI_API_KEY', ''),
-                'model_name': 'gpt-5.2',
-                'display_name': 'gpt-5.2',
-                'max_context_length': 128000,  # gpt-5-pro 支持 128k 上下文
+                'model_name': 'gpt-5.4',
+                'display_name': 'gpt-5.4',
+                'max_context_length': 272000,  # gpt-5-pro 支持 128k 上下文
                 'supports_images': True,  # 支持图片
                 'enabled': True
             },
@@ -147,7 +148,7 @@ class Config:
     @property
     def DATABASE_URL(self):
         """构建数据库连接URL"""
-        return f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}/{self.MYSQL_DB}"
+        return f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
 
 
 class DevelopmentConfig(Config):

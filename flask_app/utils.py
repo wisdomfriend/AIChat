@@ -167,7 +167,7 @@ class RedisRateLimiter:
         # 尝试从Flask应用配置中获取
         try:
             from flask import current_app
-            redis_client = current_app.config.get('SESSION_REDIS')
+            redis_client = current_app.config.get('REDIS_CLIENT')
             if redis_client:
                 return redis_client
         except Exception:

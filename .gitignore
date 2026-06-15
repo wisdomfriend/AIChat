@@ -197,3 +197,7 @@ docs/
 ssl
 
 flask_session
+
+# Frontend
+frontend/node_modules/
+frontend/dist/

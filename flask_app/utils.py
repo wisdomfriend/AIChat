@@ -18,10 +18,21 @@ import uuid
 from functools import wraps
 from typing import Tuple
 
-from flask import Response, current_app, flash, redirect, session, url_for
+from flask import Response, current_app, flash, redirect, request, session, url_for
 
 from .database import get_session
 from .models import User
+
+
+def get_client_ip() -> str:
+    """从代理头或 remote_addr 提取客户端 IP。"""
+    forwarded = request.headers.get("X-Forwarded-For", "").strip()
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    real_ip = request.headers.get("X-Real-IP", "").strip()
+    if real_ip:
+        return real_ip
+    return request.remote_addr or "unknown"
 
 
 def get_current_user():

@@ -1,26 +1,33 @@
-"""LLM 模型管理器 - 使用 LangChain 统一管理多个 LLM 模型"""
-import json
+"""LLM 模型管理 Service（单例）。
+
+职责总览：
+1) 实例管理
+   - `get_llm()`  获取/缓存 ChatOpenAI 实例
+   - `get_available_providers()`  返回可用提供商列表
+2) Token 计算
+   - `count_tokens()`  估算消息列表 Token 数
+3) 配置
+   - `get_provider_config()`  读取指定提供商配置
+   - `get_max_context_length()`  获取上下文窗口大小
+"""
 import asyncio
+import json
 import threading
-from typing import List, Dict, Optional, AsyncGenerator
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from typing import AsyncGenerator, Dict, List, Optional
+
 import tiktoken
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
 
 
 class LLMService:
-    """LLM 模型管理器，统一管理多个 LLM 提供商（单例模式）"""
+    """统一管理多个 LLM 提供商，全局单例，跨请求共享模型实例缓存。"""
     
     _instance = None
     _lock = threading.Lock()  # 线程锁，确保线程安全
     
     def __new__(cls, config=None):
-        """
-        单例模式实现：确保整个应用只有一个 LLMService 实例
-        
-        Args:
-            config: 配置对象（Config 实例），仅在首次创建时使用
-        """
+        """单例：确保全应用只有一个 LLMService 实例（内部使用）。"""
         if cls._instance is None:
             with cls._lock:
                 # 双重检查，避免多线程环境下重复创建
@@ -30,11 +37,11 @@ class LLMService:
         return cls._instance
     
     def __init__(self, config):
-        """
-        初始化 LLM 服务
-        
-        Args:
-            config: 配置对象（Config 实例）
+        """初始化 LLM 服务，加载配置（单例仅首次生效）。
+
+        用法:
+        - 调用方: `ChatService`、`AgentService`
+        - 参数: `config` — Config 实例
         """
         # 避免重复初始化（单例模式下可能被多次调用）
         if hasattr(self, '_initialized'):
@@ -45,14 +52,12 @@ class LLMService:
         self._initialized = True
     
     def get_llm(self, provider_id: str):
-        """
-        获取模型实例（带缓存）
-        
-        Args:
-            provider_id: 模型提供商ID（'deepseek' 或 'vllm'）
-            
-        Returns:
-            ChatOpenAI 实例
+        """获取指定提供商的 ChatOpenAI 实例（带缓存）。
+
+        用法:
+        - 调用方: 聊天流式生成、Agent 执行
+        - 参数: `provider_id` — 如 `deepseek`、`openai`、`vllm`
+        - 返回值: LangChain `ChatOpenAI` 实例
         """
         if provider_id not in self._llm_instances:
             self._llm_instances[provider_id] = self._create_llm(provider_id)
@@ -141,14 +146,12 @@ class LLMService:
             raise ValueError(f"未知的模型提供商: {provider_id}")
     
     def get_max_context_length(self, provider_id: str) -> int:
-        """
-        获取模型的最大上下文长度
-        
-        Args:
-            provider_id: 模型提供商ID
-            
-        Returns:
-            最大上下文长度（token 数）
+        """获取指定模型的最大上下文窗口（Token 数）。
+
+        用法:
+        - 调用方: `LangChainMemoryManager` 压缩判断
+        - 参数: `provider_id`
+        - 返回值: Token 数，默认 32768
         """
         if provider_id not in self.config.LLM_PROVIDERS:
             raise ValueError(f"不支持的模型提供商: {provider_id}")
@@ -157,16 +160,12 @@ class LLMService:
         return provider_config.get('max_context_length', 32768)
     
     def count_tokens(self, messages: List[Dict], provider_id: str) -> int:
-        """
-        计算消息的 token 数
-        
-        Args:
-            messages: 消息列表，格式为 [{'role': '...', 'content': '...'}, ...]
-                     支持多模态消息：content 可以是字符串或数组
-            provider_id: 模型提供商ID（用于选择 tokenizer）
-            
-        Returns:
-            token 数量
+        """估算消息列表的 Token 数量。
+
+        用法:
+        - 调用方: 上下文压缩、用量统计
+        - 参数: `messages` — `[{ role, content }]`；`provider_id`
+        - 返回值: 估算 Token 总数（tiktoken cl100k_base）
         """
         # 获取模型配置
         provider_config = self.config.LLM_PROVIDERS.get(provider_id, {})
@@ -320,14 +319,12 @@ class LLMService:
             raise
     
     def get_provider_config(self, provider_id: str) -> Dict:
-        """
-        获取模型提供商配置
-        
-        Args:
-            provider_id: 模型提供商ID
-            
-        Returns:
-            配置字典
+        """获取指定 LLM 提供商配置（脱敏 api_key）。
+
+        用法:
+        - 调用方: 前端展示、调试
+        - 参数: `provider_id`
+        - 返回值: 配置字典，`api_key` 字段为 `***`
         """
         if provider_id not in self.config.LLM_PROVIDERS:
             raise ValueError(f"不支持的模型提供商: {provider_id}")
@@ -339,11 +336,11 @@ class LLMService:
         return provider_config
     
     def get_available_providers(self) -> List[Dict]:
-        """
-        获取所有可用的模型提供商列表
-        
-        Returns:
-            提供商列表，格式为 [{'id': '...', 'name': '...', 'enabled': True, 'supports_images': False}, ...]
+        """返回所有已启用的 LLM 提供商列表。
+
+        用法:
+        - 调用方: `GET /api/llm/providers`
+        - 返回值: `[{ id, name, enabled, supports_images }, ...]`
         """
         providers = []
         for provider_id, config in self.config.LLM_PROVIDERS.items():
@@ -357,11 +354,10 @@ class LLMService:
         return providers
     
     def clear_cache(self, provider_id: Optional[str] = None):
-        """
-        清理模型实例缓存
-        
-        Args:
-            provider_id: 如果指定，只清理该提供商的缓存；否则清理所有
+        """清理 LLM 实例缓存（内部维护用）。
+
+        用法:
+        - 参数: `provider_id` — 指定则只清该提供商；省略则清空全部
         """
         if provider_id:
             self._llm_instances.pop(provider_id, None)

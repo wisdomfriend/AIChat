@@ -1,7 +1,9 @@
 """Flask应用启动脚本 - 用于开发环境和PyCharm调试"""
-import os
 import logging
+import os
+
 from dotenv import load_dotenv
+
 from flask_app import create_app
 
 # 配置日志

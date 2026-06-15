@@ -1,16 +1,33 @@
-"""认证服务"""
+"""用户认证 Service。
+
+职责总览（按登录流程）：
+1) 登录
+   - `AuthService.authenticate()`  校验用户名密码，更新 last_login
+2) 注册
+   - `AuthService.register()`  创建新用户，密码加密存储
+"""
 from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
+
+from werkzeug.security import check_password_hash, generate_password_hash
+
 from ..database import get_session
 from ..models import User
 
 
 class AuthService:
-    """认证相关业务逻辑"""
+    """用户登录与注册业务逻辑。"""
     
     @staticmethod
     def authenticate(username, password):
-        """验证用户登录"""
+        """校验用户名与密码，返回登录结果。
+
+        用法:
+        - 调用方: `routes/auth.login`
+        - 参数: `username`、`password`
+        - 成功: `{ "success": true, "user": { id, username, last_login } }`
+        - 失败: `{ "success": false, "message": "..." }`
+        - 兼容: 支持 werkzeug 哈希与旧版明文密码（自动升级哈希）
+        """
         db = get_session()
         try:
             user = db.query(User).filter(User.username == username).first()
@@ -87,16 +104,13 @@ class AuthService:
     
     @staticmethod
     def register(username, password, password_confirm=None):
-        """
-        用户注册
-        
-        Args:
-            username: 用户名
-            password: 密码
-            password_confirm: 确认密码（可选，如果提供则验证一致性）
-        
-        Returns:
-            dict: 包含success和message的字典
+        """注册新用户并加密存储密码。
+
+        用法:
+        - 调用方: `routes/auth.register`
+        - 参数: `username`（3-20 字符）、`password`、`password_confirm`（可选）
+        - 成功: `{ "success": true, "message": "注册成功" }`
+        - 失败: `{ "success": false, "message": "..." }`（用户名重复、格式不符等）
         """
         db = get_session()
         try:

@@ -1,17 +1,37 @@
-"""辅助工具函数"""
-import os
+"""通用工具函数与装饰器。
+
+职责总览：
+1) 用户与权限
+   - `get_current_user()`  从 Session 读取当前用户
+   - `require_login`       页面路由登录保护装饰器
+   - `require_admin`       页面路由 admin 保护装饰器
+2) 静态资源
+   - `get_static_file_hash()`  计算静态文件 MD5 哈希文件名
+3) 限流
+   - `RedisRateLimiter`  基于 Redis 的多层级滑动窗口限流
+   - `rate_limit_chat`   聊天 API 限流装饰器
+"""
 import hashlib
+import os
 import time
 import uuid
 from functools import wraps
 from typing import Tuple
-from flask import session, redirect, url_for, flash, current_app, Response
+
+from flask import Response, current_app, flash, redirect, session, url_for
+
 from .database import get_session
 from .models import User
 
 
 def get_current_user():
-    """获取当前登录用户"""
+    """从 Flask Session 读取当前登录用户。
+
+    用法:
+    - 调用方: 路由装饰器、API 鉴权
+    - Session 键: `user_id`
+    - 返回值: `{ id, username, last_login, is_admin }` 或 None
+    """
     if 'user_id' not in session:
         return None
     
@@ -34,7 +54,12 @@ def get_current_user():
 
 
 def require_login(f):
-    """装饰器：要求用户登录"""
+    """页面路由装饰器：未登录时跳转登录页。
+
+    用法:
+    - 装饰目标: `@auth_bp.route` 等 HTML 页面路由
+    - 未登录: flash 提示，302 跳转 `/login`
+    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not get_current_user():
@@ -45,7 +70,13 @@ def require_login(f):
 
 
 def require_admin(f):
-    """装饰器：要求用户是管理员"""
+    """页面路由装饰器：要求 admin 权限。
+
+    用法:
+    - 装饰目标: `/dashboard`、`/admin` 等管理页面
+    - 未登录: 302 跳转 `/login`
+    - 非 admin: flash 错误，302 跳转 `/chat`
+    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
         user = get_current_user()
@@ -60,15 +91,12 @@ def require_admin(f):
 
 
 def get_static_file_hash(filename):
-    """
-    计算静态文件的哈希值并返回带哈希的文件名
-    
-    Args:
-        filename: 静态文件路径，例如 'css/chat.css'
-    
-    Returns:
-        带哈希的文件名，例如 'css/chat.a1b2c3d4.css'
-        如果文件不存在，返回原始文件名
+    """计算静态文件 MD5 哈希并返回带哈希的文件名。
+
+    用法:
+    - 调用方: `create_app()` 模板过滤器、`before_request` 静态文件拦截
+    - 参数: `filename` — 相对 static 目录的路径，如 `css/chat.css`
+    - 返回值: `css/chat.a1b2c3d4.css`；文件不存在时返回原始文件名
     """
     try:
         # 获取静态文件目录的绝对路径
@@ -97,9 +125,12 @@ def get_static_file_hash(filename):
 
 
 class RedisRateLimiter:
-    """
-    基于Redis的多层级访问频率限制器
-    支持多进程环境，使用Redis sorted set实现滑动窗口
+    """基于 Redis sorted set 的多层级滑动窗口限流器。
+
+    用法:
+    - 调用方: `rate_limit_chat` 装饰器
+    - 规则: 1 分钟 6 次 / 1 天 100 次 / 1 周 300 次
+    - Redis 不可用: 降级放行（不阻断请求）
     """
     def __init__(self, redis_client=None):
         """
@@ -220,13 +251,12 @@ chat_rate_limiter = RedisRateLimiter()
 
 
 def rate_limit_chat(f):
-    """
-    装饰器：限制聊天 API 的访问频率
-    多层级限流规则：
-    - 1 分钟内最多 6 次
-    - 1 天内最多 100 次
-    - 1 周内最多 300 次
-    基于用户 ID 进行限流，支持多进程环境
+    """聊天 API 装饰器：按用户 ID 多层级限流。
+
+    用法:
+    - 装饰目标: `POST /api/chat`
+    - 超限: 返回 SSE 429，`{ "type": "error", "message": "..." }`
+    - 未登录: 不限流，由路由层处理 401
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):

@@ -1,21 +1,23 @@
-"""Agent 工具类 - 提供时间和计算工具"""
-from datetime import datetime
-import pytz
+"""Agent 工具函数，供 ReAct / Plan-and-Execute Agent 调用。
+
+工具总览：
+- `calculate()`     安全计算数学表达式
+- `get_time_info()` 返回当前北京时间
+"""
 import re
+from datetime import datetime
+
+import pytz
 
 
 def calculate(expression: str) -> str:
-    """
-    计算数学表达式
-    
-    支持基本的数学运算：加减乘除、幂运算、括号等
-    安全限制：只允许数字、运算符和括号，不允许执行任意代码
-    
-    Args:
-        expression: 数学表达式字符串，例如 "3 + 5 * 2" 或 "(10 + 5) / 3"
-        
-    Returns:
-        计算结果字符串
+    """安全计算数学表达式。
+
+    用法:
+    - 调用方: `AgentService` 工具列表
+    - 参数: `expression` — 如 `"3 + 5 * 2"`、`"(10 + 5) / 3"`
+    - 返回值: 计算结果字符串；非法字符或除零时返回错误描述
+    - 限制: 仅允许数字、`+ - * / ( ) .`，不执行任意代码
     """
     try:
         # 移除空格
@@ -49,13 +51,12 @@ def calculate(expression: str) -> str:
 
 
 def get_time_info() -> str:
-    """
-    获取详细的时间信息
-    
-    不需要任何参数。
-    
-    Returns:
-        包含当前时间、日期、星期等信息的字符串
+    """返回当前北京时间（日期、时刻、星期）。
+
+    用法:
+    - 调用方: `AgentService` 工具列表
+    - 参数: 无
+    - 返回值: 如 `"当前时间：2024年01月01日 12:00:00 星期一"`
     """
     try:
         tz = pytz.timezone('Asia/Shanghai')

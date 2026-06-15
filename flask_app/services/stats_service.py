@@ -1,16 +1,31 @@
-"""统计服务"""
+"""Token 用量统计 Service。
+
+职责总览：
+1) 用户统计
+   - `StatsService.get_user_stats()`  单用户今日/本周/本月/累计 Token
+2) 管理统计
+   - `StatsService.get_admin_stats()`  全局统计与最近 API 用量明细
+"""
 from datetime import datetime, timedelta
+
 from sqlalchemy import func
+
 from ..database import get_session
-from ..models import TokenUsage, ApiKey
+from ..models import ApiKey, TokenUsage
 
 
 class StatsService:
-    """统计相关业务逻辑"""
+    """Token 用量聚合查询。"""
     
     @staticmethod
     def get_user_stats(user_id):
-        """获取用户token使用统计"""
+        """获取指定用户的 Token 用量汇总。
+
+        用法:
+        - 调用方: `routes/dashboard.dashboard`
+        - 参数: `user_id` — 用户 ID
+        - 返回值: `{ today, week, month, total }`（单位：Token 数）
+        """
         db = get_session()
         try:
             today = datetime.utcnow().date()
@@ -50,7 +65,12 @@ class StatsService:
     
     @staticmethod
     def get_admin_stats():
-        """获取管理员统计信息"""
+        """获取全局 Token 统计与最近用量记录。
+
+        用法:
+        - 调用方: `routes/admin.admin`
+        - 返回值: `{ stats: { today, week, month, total }, recent_usage: [...] }`
+        """
         db = get_session()
         try:
             today = datetime.utcnow().date()

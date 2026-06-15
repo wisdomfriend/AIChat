@@ -1,14 +1,20 @@
-"""百度搜索服务"""
+"""百度搜索 Service（网页爬取方式）。
+
+职责总览：
+- `BaiduSearchService.search()`  执行搜索并返回格式化文本，供 Agent 联网模式使用
+"""
+import time
+import urllib.parse
+from typing import Dict, List
+
 import requests
 from bs4 import BeautifulSoup
-import urllib.parse
-from typing import List, Dict
-import time
+
 from ..config import Config
 
 
 class BaiduSearchService:
-    """百度搜索服务"""
+    """通过 requests + BeautifulSoup 爬取百度搜索结果。"""
     
     def __init__(self, config: Config = None):
         self.config = config or Config()
@@ -18,15 +24,13 @@ class BaiduSearchService:
         self._session_initialized = False
     
     def search(self, query: str, num_results: int = 3) -> str:
-        """
-        执行百度搜索并返回格式化结果
-        
-        Args:
-            query: 搜索关键词
-            num_results: 返回结果数量（默认3条）
-            
-        Returns:
-            格式化的搜索结果文本
+        """执行百度搜索并返回格式化文本。
+
+        用法:
+        - 调用方: `ChatService` web_search / Agent 模式
+        - 参数: `query` — 搜索关键词；`num_results` — 条数（默认 3）
+        - 返回值: 含标题、摘要、链接的 Markdown 风格文本
+        - 无结果: 返回 `"未找到相关搜索结果。"`
         """
         try:
             # 确保会话已初始化（延迟初始化）

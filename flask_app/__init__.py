@@ -1,9 +1,18 @@
-"""Flask应用工厂"""
+"""Flask 应用工厂。
+
+启动流程（按初始化顺序）：
+1) 创建 Flask 实例并加载配置
+2) 初始化 Redis Session 存储（失败则回退文件系统 Session）
+3) `init_db()`  确保数据库连接可用
+4) 注册静态文件哈希处理与全部路由
+5) 初始化 Swagger API 文档（/api-docs）
+"""
 import logging
+
 from flask import Flask, request
-from flask_cors import CORS
 from flasgger import Swagger
 import redis
+
 from .config import create_config
 from .database import init_db
 from .routes import register_routes
@@ -14,7 +23,13 @@ logger = logging.getLogger(__name__)
 
 
 def create_app(config_name='default'):
-    """创建Flask应用实例"""
+    """创建并配置 Flask 应用实例。
+
+    用法:
+    - 调用方: `run.py`、`wsgi.py`
+    - 参数: `config_name`  配置名称（development / production 等）
+    - 返回值: 已完成 Session、数据库、路由与 Swagger 注册的 Flask app
+    """
     app = Flask(__name__)
     
     # 使用配置工厂函数创建配置实例（此时环境变量已经加载）

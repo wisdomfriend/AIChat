@@ -1,4 +1,13 @@
-"""LangChain Memory 管理器 - 简化版，只用于上下文压缩"""
+"""LangChain 上下文压缩与历史消息管理。
+
+职责总览：
+1) 历史读取
+   - `get_history_messages_as_dict()`  从 MySQL 加载消息
+2) 持久化
+   - `save_context()`  保存本轮 user/assistant 对话
+3) 上下文构建
+   - `build_messages_for_api()`  组装 LLM 请求消息（含压缩）
+"""
 from typing import List, Dict, Optional, Tuple
 
 from langchain_core.messages import HumanMessage, AIMessage
@@ -8,25 +17,18 @@ from ..config import Config
 
 
 class LangChainMemoryManager:
-    """LangChain Memory 管理器（简化版）
-    
-    只保留以下功能：
-    1. 从数据库读取历史消息
-    2. 保存对话上下文到数据库
-    3. 上下文压缩（使用 predict_new_summary）
-    """
+    """管理单会话的历史消息、文件上下文与 Token 超限压缩。"""
     
     def __init__(
         self,
         session_id: int,
         user_id: int
     ):
-        """
-        初始化
-        
-        Args:
-            session_id: 会话ID
-            user_id: 用户ID
+        """绑定会话与用户，初始化 MySQL 消息存储与文件服务。
+
+        用法:
+        - 调用方: `ChatService.process_chat_stream_with_session()`
+        - 参数: `session_id`、`user_id`
         """
         self.session_id = session_id
         self.user_id = user_id
@@ -109,13 +111,11 @@ class LangChainMemoryManager:
             db.close()
     
     def save_context(self, user_input: str, ai_output: str, user_file_ids: List[int] = None):
-        """
-        保存对话上下文到数据库
-        
-        Args:
-            user_input: 用户输入
-            ai_output: AI输出
-            user_file_ids: 用户消息关联的文件ID列表
+        """保存本轮 user/assistant 对话到 MySQL。
+
+        用法:
+        - 调用方: 流式聊天结束后
+        - 参数: `user_input`、`ai_output`、`user_file_ids`（可选附件）
         """
         from langchain_core.messages import HumanMessage, AIMessage
         
@@ -237,17 +237,12 @@ class LangChainMemoryManager:
         system_prompt: str = None,
         llm_provider: str = None
     ) -> List[Dict]:
-        """
-        构建发送给 API 的消息列表（支持摘要应用和自动压缩）
-        
-        Args:
-            user_message: 用户消息
-            file_ids: 当前消息的文件ID列表
-            system_prompt: 系统提示词
-            llm_provider: 模型提供商ID（用于压缩）
-            
-        Returns:
-            消息列表，格式为 [{'role': '...', 'content': '...'}, ...]
+        """构建 LLM API 请求消息列表（含历史、文件上下文与自动压缩）。
+
+        用法:
+        - 调用方: `ChatService._process_normal_chat()`
+        - 参数: `user_message`、`file_ids`、`system_prompt`、`llm_provider`
+        - 返回值: `[{ role, content }, ...]`，超 Token 阈值时触发摘要压缩
         """
         # 获取历史消息（字典格式，包含文件信息和ID）
         history_messages = self.get_history_messages_as_dict(include_files=True)

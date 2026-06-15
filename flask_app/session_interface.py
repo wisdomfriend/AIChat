@@ -1,13 +1,22 @@
-"""自定义Session接口，修复session_id bytes类型问题"""
-from flask_session.sessions import RedisSessionInterface
-import logging
+"""自定义 Redis Session 接口，修复 session_id bytes 类型问题。
+
+职责总览：
+1) Session ID 规范化
+   - `_ensure_string_sid()`  将 bytes 转为 str
+2) Session 读写
+   - `save_session()`  保存 Session 到 Redis 并设置 Cookie
+   - `open_session()`   从 Cookie/Redis 恢复 Session
+"""
 import base64
+import logging
+
+from flask_session.sessions import RedisSessionInterface
 
 logger = logging.getLogger(__name__)
 
 
 class FixedRedisSessionInterface(RedisSessionInterface):
-    """修复session_id bytes类型问题的Redis Session接口"""
+    """修复 Flask-Session Redis 接口中 session_id 为 bytes 导致的 Cookie 写入异常。"""
     
     def _ensure_string_sid(self, session_id):
         """确保session_id是字符串类型"""
@@ -91,12 +100,23 @@ class FixedRedisSessionInterface(RedisSessionInterface):
         )
     
     def save_session(self, app, session, response):
-        """重写save_session方法，确保session_id是字符串类型"""
+        """保存 Session 到 Redis 并写入 Cookie。
+
+        用法:
+        - 调用方: Flask 请求结束时自动调用
+        - 实现: 委托 `_save_session_custom()`，确保 sid 为 str
+        """
         # 直接使用自定义实现，避免父类的bytes问题
         self._save_session_custom(app, session, response)
     
     def open_session(self, app, request):
-        """重写open_session方法，确保从cookie读取的session_id正确处理"""
+        """从 Cookie 读取 sid 并从 Redis 恢复 Session 数据。
+
+        用法:
+        - 调用方: Flask 请求开始时自动调用
+        - 签名验证失败: 尝试兼容未签名的旧 Cookie
+        - 返回值: Flask Session 对象（空或含 user_id 等数据）
+        """
         sid = request.cookies.get(app.config["SESSION_COOKIE_NAME"])
         if not sid:
             return self.session_class()

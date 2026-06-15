@@ -1,12 +1,25 @@
-"""数据库模型定义"""
-from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, Text, text
+"""SQLAlchemy ORM 模型定义。
+
+表总览（按业务领域）：
+1) 用户与认证
+   - `User`    账号、密码哈希、admin 标志
+   - `ApiKey`  LLM 提供商 API 密钥
+2) 聊天
+   - `ChatSession`          会话主题与 LLM 提供商
+   - `ChatMessage`          用户/助手消息及附件 ID
+   - `ConversationSummary`  长对话压缩摘要
+3) 文件与统计
+   - `UploadedFile`  上传文件元数据与提取文本
+   - `TokenUsage`    Token 用量记录
+"""
+from sqlalchemy import Boolean, Column, Integer, String, Text, TIMESTAMP, text
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
 
 class User(Base):
-    """用户模型"""
+    """用户表 `users`，存储登录凭证与权限标志。"""
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -19,7 +32,7 @@ class User(Base):
 
 
 class ApiKey(Base):
-    """API密钥配置模型"""
+    """API 密钥表 `api_keys`，按 LLM 提供商存储密钥。"""
     __tablename__ = "api_keys"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -31,7 +44,7 @@ class ApiKey(Base):
 
 
 class TokenUsage(Base):
-    """Token使用记录模型"""
+    """Token 用量表 `token_usage`，记录每次 LLM 调用的消耗。"""
     __tablename__ = "token_usage"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -44,59 +57,56 @@ class TokenUsage(Base):
 
 
 class ChatSession(Base):
-    """聊天会话模型"""
+    """聊天会话表 `chat_sessions`，每个用户可有多个会话。"""
     __tablename__ = "chat_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False)
-    title = Column(String(200), nullable=False)  # 会话主题
-    llm_provider = Column(String(50), default='deepseek')  # 使用的LLM提供商
+    title = Column(String(200), nullable=False)
+    llm_provider = Column(String(50), default='deepseek')
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     updated_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'), onupdate=text('CURRENT_TIMESTAMP'))
 
 
 class ChatMessage(Base):
-    """聊天消息模型"""
+    """聊天消息表 `chat_messages`，关联会话与用户/助手角色。"""
     __tablename__ = "chat_messages"
 
     id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, nullable=False)  # 关联的会话ID
-    role = Column(String(20), nullable=False)  # 'user' 或 'assistant'
-    content = Column(Text, nullable=False)  # 消息内容（最大 64KB）
-    file_ids = Column(String(500))  # 关联的文件ID列表，JSON格式 如 "[1,2,3]"
+    session_id = Column(Integer, nullable=False)
+    role = Column(String(20), nullable=False)
+    content = Column(Text, nullable=False)
+    file_ids = Column(String(500))
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
 
 
 class UploadedFile(Base):
-    """上传文件模型"""
+    """上传文件表 `uploaded_files`，存储文件元数据与提取文本。"""
     __tablename__ = "uploaded_files"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False)                    # 用户ID
-    original_filename = Column(String(255), nullable=False)      # 原始文件名
-    stored_filename = Column(String(255), nullable=False)        # 存储的文件名(UUID)
-    file_path = Column(String(500), nullable=False)              # 文件存储路径
-    file_size = Column(Integer, nullable=False)                  # 文件大小(字节)
-    file_type = Column(String(100), nullable=False)              # 文件MIME类型
-    file_extension = Column(String(20), nullable=False)          # 文件扩展名
-    extracted_text = Column(String(16777215))                    # 提取的文本内容 (MEDIUMTEXT)
-    text_length = Column(Integer, default=0)                     # 提取文本的长度
-    extraction_status = Column(String(20), default='pending')    # pending/success/failed/too_large
-    error_message = Column(String(500))                          # 错误信息
+    user_id = Column(Integer, nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    stored_filename = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    file_type = Column(String(100), nullable=False)
+    file_extension = Column(String(20), nullable=False)
+    extracted_text = Column(String(16777215))
+    text_length = Column(Integer, default=0)
+    extraction_status = Column(String(20), default='pending')
+    error_message = Column(String(500))
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     updated_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'), onupdate=text('CURRENT_TIMESTAMP'))
 
 
 class ConversationSummary(Base):
-    """对话摘要模型"""
+    """对话摘要表 `conversation_summaries`，存储上下文压缩结果。"""
     __tablename__ = "conversation_summaries"
 
     id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, nullable=False)  # 会话ID
-    message_count = Column(Integer, nullable=False)  # 覆盖的消息轮数（从第0轮开始）
-    summary_content = Column(Text, nullable=False)  # 摘要内容
-    token_count = Column(Integer)  # 摘要的token数
+    session_id = Column(Integer, nullable=False)
+    message_count = Column(Integer, nullable=False)
+    summary_content = Column(Text, nullable=False)
+    token_count = Column(Integer)
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
-    
-    # 外键约束
-    # FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE

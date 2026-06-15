@@ -1,16 +1,26 @@
-"""文件处理服务"""
+"""文件处理 Service — 上传、文本提取与上下文拼接。
+
+职责总览：
+1) 文本提取
+   - `FileExtractor`  支持 txt/pdf/docx/xlsx 及图片格式识别
+2) 文件 CRUD
+   - `FileService.save_file()` / `get_file()` / `delete_file()` / `get_user_files()`
+3) 聊天上下文
+   - `format_file_context()` / `get_file_contexts_from_ids()`
+"""
+import mimetypes
 import os
 import uuid
-import mimetypes
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
+
+from ..config import Config
 from ..database import get_session
 from ..models import UploadedFile
-from ..config import Config
 
 
 class FileExtractor:
-    """文件文本提取器"""
+    """文件文本提取器，按扩展名选择提取策略。"""
     
     # 支持的文件扩展名及其处理方式
     SUPPORTED_EXTENSIONS = {
@@ -72,7 +82,11 @@ class FileExtractor:
         return ext in self.SUPPORTED_EXTENSIONS and self.SUPPORTED_EXTENSIONS[ext] == 'image'
     
     def get_supported_extensions(self) -> list:
-        """获取支持的文件扩展名列表"""
+        """返回支持的文件扩展名列表（含点号）。
+
+        用法:
+        - 调用方: `GET /api/files/supported`
+        """
         return list(self.SUPPORTED_EXTENSIONS.keys())
     
     def extract(self, file_path: str, extension: str) -> tuple[str, str]:
@@ -176,7 +190,7 @@ class FileExtractor:
 
 
 class FileService:
-    """文件服务"""
+    """文件上传、存储、文本提取与聊天上下文拼接。"""
     
     def __init__(self):
         self.config = Config()
@@ -232,15 +246,13 @@ class FileService:
         return True, ''
     
     def save_file(self, user_id: int, file) -> dict:
-        """
-        保存上传的文件
-        
-        Args:
-            user_id: 用户ID
-            file: Flask 文件对象
-            
-        Returns:
-            dict: {'success': bool, 'file_id': int, 'error': str}
+        """保存上传文件并提取文本。
+
+        用法:
+        - 调用方: `POST /api/files`
+        - 参数: `user_id`、Flask `file` 对象
+        - 成功: `{ success: true, file_id, filename, file_type, file_size, message }`
+        - 失败: `{ success: false, error: "..." }`
         """
         try:
             filename = file.filename
@@ -330,15 +342,11 @@ class FileService:
             return {'success': False, 'error': f'保存文件失败: {str(e)}'}
     
     def get_file(self, file_id: int, user_id: int) -> dict:
-        """
-        获取文件信息
-        
-        Args:
-            file_id: 文件ID
-            user_id: 用户ID
-            
-        Returns:
-            dict: 文件信息
+        """获取文件元数据（不含磁盘路径）。
+
+        用法:
+        - 调用方: `GET /api/files/<file_id>`
+        - 返回值: 文件信息 dict；不存在或无权限时返回 None
         """
         db = get_session()
         try:
@@ -389,15 +397,11 @@ class FileService:
             db.close()
     
     def get_user_files(self, user_id: int, limit: int = 50) -> list:
-        """
-        获取用户的文件列表
-        
-        Args:
-            user_id: 用户ID
-            limit: 返回数量限制
-            
-        Returns:
-            list: 文件列表
+        """获取用户上传的文件列表。
+
+        用法:
+        - 调用方: `GET /api/files`
+        - 返回值: `[{ id, original_filename, file_size, ... }, ...]`
         """
         db = get_session()
         try:
@@ -420,15 +424,11 @@ class FileService:
             db.close()
     
     def delete_file(self, file_id: int, user_id: int) -> dict:
-        """
-        删除文件
-        
-        Args:
-            file_id: 文件ID
-            user_id: 用户ID
-            
-        Returns:
-            dict: {'success': bool, 'error': str}
+        """删除用户拥有的文件（磁盘 + 数据库）。
+
+        用法:
+        - 调用方: `DELETE /api/files/<file_id>`
+        - 成功: `{ success: true }`；失败: `{ success: false, error: "..." }`
         """
         db = get_session()
         try:

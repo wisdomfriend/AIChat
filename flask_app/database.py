@@ -1,70 +1,95 @@
-"""数据库连接和会话管理"""
-import time
+"""数据库连接与会话管理。
+
+职责总览：
+1) 连接池
+   - `create_engine_instance()`  创建带连接池的 SQLAlchemy Engine
+   - `init_db()`  初始化全局 Engine（失败时最多重试 5 次）
+2) 会话获取
+   - `get_session()`  直接返回 ORM Session（路由/Service 层常用）
+   - `get_db()`  生成器式 Session，适用于依赖注入场景
+"""
 import logging
-from sqlalchemy import create_engine, event, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import OperationalError, DisconnectionError
+import time
+
 from flask import current_app
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.exc import DisconnectionError, OperationalError
+from sqlalchemy.orm import sessionmaker
+
 from .models import Base
 
 logger = logging.getLogger(__name__)
 
 
 def get_database_url():
-    """获取数据库连接URL"""
+    """读取当前配置的数据库连接 URL。
+
+    用法:
+    - 调用方: `create_engine_instance()`
+    - 返回值: `Config().DATABASE_URL`
+    """
     from .config import Config
     config = Config()
     return config.DATABASE_URL
 
 
 def create_engine_instance():
-    """创建数据库引擎，带连接池和重试机制"""
+    """创建带连接池与 pre-ping 的数据库 Engine。
+
+    用法:
+    - 调用方: `init_db()`
+    - 连接池: pool_size=10, max_overflow=20, pool_recycle=3600
+    - 返回值: SQLAlchemy Engine 实例
+    """
     database_url = get_database_url()
-    
-    # 配置连接池参数
+
     engine = create_engine(
         database_url,
         echo=False,
-        pool_size=10,  # 连接池大小
-        max_overflow=20,  # 最大溢出连接数
-        pool_pre_ping=True,  # 连接前ping，自动重连断开的连接
-        pool_recycle=3600,  # 连接回收时间（秒）
+        pool_size=10,
+        max_overflow=20,
+        pool_pre_ping=True,
+        pool_recycle=3600,
         connect_args={
-            'connect_timeout': 10,  # 连接超时时间（秒）
+            'connect_timeout': 10,
             'charset': 'utf8mb4'
         }
     )
-    
-    # 添加连接错误处理
+
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_conn, connection_record):
-        """连接建立时的回调"""
+        """连接建立时的调试回调（内部使用）。"""
         logger.debug("数据库连接已建立")
-    
+
     return engine
 
 
 def create_session_local(engine):
-    """创建会话工厂"""
+    """创建绑定 Engine 的 Session 工厂（内部使用）。"""
     return sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-# 全局引擎和会话工厂
 _engine = None
 _SessionLocal = None
 
 
 def init_db():
-    """初始化数据库连接，带重试机制"""
+    """初始化全局 Engine 与 Session 工厂，带重试机制。
+
+    用法:
+    - 调用方: `flask_app.create_app()`
+    - 重试: 最多 5 次，间隔 3 秒
+    - 返回值: `(engine, SessionLocal)` 元组
+    - 失败: 抛出 OperationalError
+    """
     global _engine, _SessionLocal
     if _engine is None:
         max_retries = 5
-        retry_delay = 3  # 秒
-        
+        retry_delay = 3
+
         for attempt in range(max_retries):
             try:
                 _engine = create_engine_instance()
-                # 测试连接
                 with _engine.connect() as conn:
                     conn.execute(text("SELECT 1"))
                 _SessionLocal = create_session_local(_engine)
@@ -80,12 +105,17 @@ def init_db():
             except Exception as e:
                 logger.error(f"数据库初始化错误: {str(e)}", exc_info=True)
                 raise
-    
+
     return _engine, _SessionLocal
 
 
 def get_db():
-    """获取数据库会话（用于依赖注入）"""
+    """生成器式获取数据库 Session（依赖注入场景）。
+
+    用法:
+    - 调用方: 需要 `yield` 模式的框架集成
+    - 返回值: 生成器，yield 一个 Session，结束后自动 close
+    """
     global _SessionLocal
     if _SessionLocal is None:
         init_db()
@@ -97,9 +127,14 @@ def get_db():
 
 
 def get_session():
-    """获取数据库会话（直接使用）"""
+    """直接获取数据库 Session（路由/Service 层常用）。
+
+    用法:
+    - 调用方: 各 Service、`utils.get_current_user()` 等
+    - 返回值: SQLAlchemy Session 实例
+    - 注意: 调用方负责 `db.close()` 或使用 try/finally
+    """
     global _SessionLocal
     if _SessionLocal is None:
         init_db()
     return _SessionLocal()
-

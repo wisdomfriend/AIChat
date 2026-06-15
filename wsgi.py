@@ -1,7 +1,9 @@
 """WSGI入口文件 - 用于生产环境部署"""
-import os
 import logging
+import os
+
 from dotenv import load_dotenv
+
 from flask_app import create_app
 
 # 配置日志

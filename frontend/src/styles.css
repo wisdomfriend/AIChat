@@ -28,3 +28,16 @@ body {
   justify-content: center;
   padding: 24px 0;
 }
+
+.auth-card {
+  width: min(420px, 100%);
+}
+
+.chat-shell {
+  align-items: flex-start;
+  padding-top: 48px;
+}
+
+.chat-card {
+  width: min(860px, 100%);
+}

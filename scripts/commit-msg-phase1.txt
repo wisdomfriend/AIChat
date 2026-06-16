@@ -1,0 +1,3 @@
+feat: 阶段1 React 迁移骨架与 Nginx 统一入口
+
+新增 frontend/（Vite + React + Ant Design 占位页），采用方案 A 由 Nginx 同时托管 SPA 静态资源与 /api 反代（SSE 关闭缓冲）。Redis 改为仅限流用途，移除 Session 存储依赖，并新增 /health 健康检查。

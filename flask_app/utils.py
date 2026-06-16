@@ -2,9 +2,10 @@
 
 职责总览：
 1) 用户与权限
-   - `get_current_user()`  从 Session 读取当前用户
-   - `require_login`       页面路由登录保护装饰器
-   - `require_admin`       页面路由 admin 保护装饰器
+   - `get_current_user()`  从 Bearer Token 读取当前用户
+   - `serialize_user()`      用户 dict 序列化
+   - `require_login`       页面路由登录保护装饰器（旧版 SSR）
+   - `require_admin`       页面路由 admin 保护装饰器（旧版 SSR）
 2) 静态资源
    - `get_static_file_hash()`  计算静态文件 MD5 哈希文件名
 3) 限流
@@ -18,10 +19,11 @@ import uuid
 from functools import wraps
 from typing import Tuple
 
-from flask import Response, current_app, flash, redirect, request, session, url_for
+from flask import Response, current_app, flash, redirect, request, url_for
 
 from .database import get_session
 from .models import User
+from .services.auth_token import get_bearer_token, verify_user_token
 
 
 def get_client_ip() -> str:
@@ -35,32 +37,67 @@ def get_client_ip() -> str:
     return request.remote_addr or "unknown"
 
 
-def get_current_user():
-    """从 Flask Session 读取当前登录用户。
+def serialize_user(user: dict | None) -> dict | None:
+    """将用户 dict 序列化为 API 响应格式。
 
     用法:
-    - 调用方: 路由装饰器、API 鉴权
-    - Session 键: `user_id`
+    - 调用方: `routes/auth_api`、`/api/*` 返回用户信息
+    - 参数: `user` — `{ id, username, last_login, is_admin }`
+    - 返回值: JSON 可序列化 dict；`user` 为 None 时返回 None
+    """
+    if not user:
+        return None
+    last_login = user.get("last_login")
+    if last_login is not None and hasattr(last_login, "isoformat"):
+        last_login = last_login.isoformat()
+    return {
+        "id": user.get("id"),
+        "username": user.get("username"),
+        "last_login": last_login,
+        "is_admin": bool(user.get("is_admin", False)),
+    }
+
+
+def _user_row_to_dict(user: User) -> dict:
+    """将 ORM User 转为 API 内部使用的用户 dict（内部使用）。
+
+    用法:
+    - 调用方: `get_current_user()`
+    - 返回值: `{ id, username, last_login, is_admin }`
+    """
+    return {
+        "id": user.id,
+        "username": user.username,
+        "last_login": user.last_login,
+        "is_admin": bool(user.is_admin) if hasattr(user, "is_admin") else False,
+    }
+
+
+def get_current_user():
+    """从 Bearer Token 读取当前登录用户。
+
+    用法:
+    - 请求头: `Authorization: Bearer <token>`
     - 返回值: `{ id, username, last_login, is_admin }` 或 None
     """
-    if 'user_id' not in session:
+    token = get_bearer_token()
+    if not token:
         return None
-    
+
+    payload = verify_user_token(token)
+    if not payload:
+        return None
+
     try:
         db = get_session()
-        user = db.query(User).filter(User.id == session['user_id']).first()
+        user = db.query(User).filter(User.id == payload["user_id"]).first()
         db.close()
-        
+
         if user and user.is_active:
-            return {
-                'id': user.id,
-                'username': user.username,
-                'last_login': user.last_login,
-                'is_admin': user.is_admin if hasattr(user, 'is_admin') else False
-            }
+            return _user_row_to_dict(user)
     except Exception as e:
         print(f"Get user error: {e}")
-    
+
     return None
 
 

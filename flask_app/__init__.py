@@ -38,7 +38,7 @@ def create_app(config_name='default'):
     config_instance = create_config(config_name)
     app.config.from_object(config_instance)
     
-    # 初始化 Redis 连接（仅用于聊天限流）
+    # 初始化 Redis 连接（仅用于聊天限流；认证已改为 Bearer Token，不再使用 Redis Session）
     try:
         redis_client = redis.Redis(
             host=config_instance.REDIS_HOST,
@@ -142,8 +142,10 @@ def create_app(config_name='default'):
             AI 聊天应用的 API 接口文档，支持聊天、文件管理、会话管理等功能。
             
             **重要提示：**
-            - 阶段 2 起将使用 Bearer Token 认证
-            - 当前迁移阶段请通过 React 前端或 API 文档验证接口
+            - 除公开接口外，API 需 Bearer Token 认证
+            - 请求头: `Authorization: Bearer <token>`
+            - 登录获取 token: `POST /api/auth/login`
+            - Swagger 中点击 Authorize，输入: `Bearer <token>`
             """,
             "version": "1.0.0",
             "contact": {
@@ -152,7 +154,29 @@ def create_app(config_name='default'):
         },
         "basePath": "/api",
         "schemes": ["http", "https"],
+        "securityDefinitions": {
+            "bearerAuth": {
+                "type": "apiKey",
+                "name": "Authorization",
+                "in": "header",
+                "description": "Bearer Token 认证，格式: Bearer <token>（先调用 POST /api/auth/login 获取）",
+            },
+            "sessionAuth": {
+                "type": "apiKey",
+                "name": "Cookie",
+                "in": "header",
+                "description": "（已废弃）旧版 Session Cookie 认证，请改用 bearerAuth",
+            },
+        },
         "tags": [
+            {
+                "name": "认证",
+                "description": "Bearer Token 登录、注册与用户信息",
+            },
+            {
+                "name": "系统",
+                "description": "健康检查与服务探活",
+            },
             {
                 "name": "聊天",
                 "description": "AI 聊天相关接口"

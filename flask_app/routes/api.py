@@ -1,8 +1,12 @@
 """REST API 路由。
 
 接口总览（按常见调用流程）：
-1) 认证调试
-   - GET `/api/test-auth`  检查 Session 认证状态（需登录）
+1) 认证
+   - POST `/api/auth/login`     用户登录，返回 Bearer token
+   - POST `/api/auth/register`  用户注册
+   - GET  `/api/auth/me`        获取当前用户（需 Bearer token）
+   - POST `/api/auth/logout`    登出（需 Bearer token）
+   - GET  `/api/test-auth`      调试认证状态（开发用）
 2) 聊天
    - POST `/api/chat`  发送消息，SSE 流式响应（需登录，有限流）
 3) 会话管理

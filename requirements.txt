@@ -24,11 +24,8 @@ python-dotenv==1.0.0
 # Cryptography library for PyMySQL
 cryptography>=42.0.0
 
-# Redis client
+# Redis client（聊天限流）
 redis==5.0.1
-
-# Flask Session extension with Redis support
-Flask-Session==0.5.0
 
 # File parsing libraries
 pdfplumber==0.10.3

@@ -3,23 +3,17 @@
 职责总览：
 1) 用户与权限
    - `get_current_user()`  从 Bearer Token 读取当前用户
-   - `serialize_user()`      用户 dict 序列化
-   - `require_login`       页面路由登录保护装饰器（旧版 SSR）
-   - `require_admin`       页面路由 admin 保护装饰器（旧版 SSR）
-2) 静态资源
-   - `get_static_file_hash()`  计算静态文件 MD5 哈希文件名
-3) 限流
+   - `serialize_user()`    用户 dict 序列化
+2) 限流
    - `RedisRateLimiter`  基于 Redis 的多层级滑动窗口限流
    - `rate_limit_chat`   聊天 API 限流装饰器
 """
-import hashlib
-import os
 import time
 import uuid
 from functools import wraps
 from typing import Tuple
 
-from flask import Response, current_app, flash, redirect, request, url_for
+from flask import Response, request
 
 from .database import get_session
 from .models import User
@@ -99,77 +93,6 @@ def get_current_user():
         print(f"Get user error: {e}")
 
     return None
-
-
-def require_login(f):
-    """页面路由装饰器：未登录时跳转登录页。
-
-    用法:
-    - 装饰目标: `@auth_bp.route` 等 HTML 页面路由
-    - 未登录: flash 提示，302 跳转 `/login`
-    """
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not get_current_user():
-            flash('请先登录后再访问', 'warning')
-            return redirect(url_for('auth.login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-def require_admin(f):
-    """页面路由装饰器：要求 admin 权限。
-
-    用法:
-    - 装饰目标: `/dashboard`、`/admin` 等管理页面
-    - 未登录: 302 跳转 `/login`
-    - 非 admin: flash 错误，302 跳转 `/chat`
-    """
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        user = get_current_user()
-        if not user:
-            flash('请先登录后再访问', 'warning')
-            return redirect(url_for('auth.login'))
-        if not user.get('is_admin', False):
-            flash('您没有权限访问此页面', 'error')
-            return redirect(url_for('chat.chat'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-def get_static_file_hash(filename):
-    """计算静态文件 MD5 哈希并返回带哈希的文件名。
-
-    用法:
-    - 调用方: `create_app()` 模板过滤器、`before_request` 静态文件拦截
-    - 参数: `filename` — 相对 static 目录的路径，如 `css/chat.css`
-    - 返回值: `css/chat.a1b2c3d4.css`；文件不存在时返回原始文件名
-    """
-    try:
-        # 获取静态文件目录的绝对路径
-        static_folder = current_app.static_folder
-        file_path = os.path.join(static_folder, filename)
-        
-        # 检查文件是否存在
-        if not os.path.exists(file_path):
-            return filename
-        
-        # 读取文件内容并计算 MD5 哈希
-        with open(file_path, 'rb') as f:
-            file_content = f.read()
-            hash_value = hashlib.md5(file_content).hexdigest()[:8]  # 取前8位
-        
-        # 分离文件名和扩展名
-        base_path, ext = os.path.splitext(filename)
-        # 生成带哈希的文件名：css/chat.a1b2c3d4.css
-        hashed_filename = f"{base_path}.{hash_value}{ext}"
-        
-        return hashed_filename
-    except Exception as e:
-        # 如果出错，返回原始文件名
-        print(f"计算文件哈希失败: {e}")
-        return filename
 
 
 class RedisRateLimiter:

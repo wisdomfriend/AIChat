@@ -6,7 +6,7 @@
    - POST `/api/auth/register`  用户注册
    - GET  `/api/auth/me`        获取当前用户（需 Bearer token）
    - POST `/api/auth/logout`    登出（需 Bearer token）
-   - GET  `/api/test-auth`      调试认证状态（开发用）
+   - GET  `/api/test-auth`      调试 Bearer 认证状态（开发用）
 2) 聊天
    - POST `/api/chat`  发送消息，SSE 流式响应（需登录，有限流）
 3) 会话管理
@@ -31,125 +31,39 @@ from ..config import Config
 from ..database import get_session
 from ..models import UploadedFile
 from ..services import ChatService, FileService, LLMService
-from ..utils import get_current_user, rate_limit_chat
+from ..utils import get_current_user, rate_limit_chat, serialize_user
+from ..services.auth_token import get_bearer_token
 
 api_bp = Blueprint('api', __name__)
 
 
 @api_bp.route('/test-auth', methods=['GET'])
 def test_auth():
-    """调试当前 Session 认证状态（开发用）。
+    """调试当前 Bearer 认证状态（开发用）。
 
     用法:
     - 方法/路径: `GET /api/test-auth`
-    - 认证: Session Cookie
-    - 成功响应: `{ "authenticated": bool, "user": {...}, "cookies": {...}, ... }`
-    - 失败响应: 500 服务器内部错误
+    - 认证: 可选 Bearer Token
+    - 成功响应: `{ "authenticated": bool, "user": {...}, "has_bearer_token": bool }`
     ---
     tags:
       - 认证
-    summary: 测试当前用户的认证状态
-    description: 用于调试，检查当前请求是否包含有效的 Session Cookie
+    summary: 测试当前用户的 Bearer 认证状态
+    description: 用于调试，检查 Authorization 请求头中的 Bearer Token 是否有效
     produces:
       - application/json
     responses:
       200:
         description: 认证状态
-        schema:
-          type: object
-          properties:
-            authenticated:
-              type: boolean
-              description: 是否已认证
-            user:
-              type: object
-              description: 用户信息（如果已认证）
-            cookies:
-              type: object
-              description: 请求中的 Cookie 信息
     """
-    from flask import session as flask_session, current_app
-    from ..config import Config
-    
-    try:
-        user = get_current_user()
-        cookies_info = {k: v[:50] + '...' if len(str(v)) > 50 else v for k, v in request.cookies.items()}
-        
-        # 获取详细的 Session 信息
-        config = Config()
-        # 使用 current_app 而不是 request.application，更安全
-        session_cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'session')
-        session_cookie_value = request.cookies.get(session_cookie_name)
-        
-        # 检查 Session 内容
-        session_data = dict(flask_session) if flask_session else {}
-        session_user_id = session_data.get('user_id')
-        
-        # 检查 Redis 中的 Session（如果使用 Redis）
-        redis_session_info = None
-        if current_app.config.get('SESSION_REDIS'):
-            try:
-                redis_client = current_app.config.get('SESSION_REDIS')
-                key_prefix = current_app.config.get('SESSION_KEY_PREFIX', 'session:')
-                
-                # 尝试从 Cookie 值读取（可能需要签名验证）
-                if session_cookie_value:
-                    # 如果使用签名器，需要先验证签名
-                    # 直接使用 Flask 应用已配置的签名器（如果存在）
-                    session_interface = getattr(current_app, 'session_interface', None)
-                    if session_interface and hasattr(session_interface, 'signer') and session_interface.signer is not None:
-                        try:
-                            # 使用 Flask-Session 的签名器（通常是 itsdangerous.Signer 或 TimestampSigner）
-                            max_age = getattr(session_interface, 'permanent_session_lifetime', None) or current_app.permanent_session_lifetime
-                            unsigned_sid = session_interface.signer.unsign(session_cookie_value, max_age=max_age)
-                            # 确保是字符串类型
-                            if isinstance(unsigned_sid, bytes):
-                                unsigned_sid = unsigned_sid.decode('utf-8')
-                            redis_key = key_prefix + str(unsigned_sid)
-                        except Exception as e:
-                            # 签名验证失败，尝试直接使用原始值（可能是未签名的旧Cookie）
-                            redis_key = key_prefix + session_cookie_value
-                            redis_session_info = {'warning': f'签名验证失败，使用原始值: {str(e)}', 'raw_cookie': session_cookie_value[:50]}
-                    else:
-                        # 没有使用签名器，直接使用 Cookie 值
-                        redis_key = key_prefix + session_cookie_value
-                    
-                    if 'error' not in (redis_session_info or {}):
-                        redis_val = redis_client.get(redis_key)
-                        if redis_val:
-                            redis_session_info = {
-                                'found': True,
-                                'key': redis_key,
-                                'data_length': len(redis_val)
-                            }
-                        else:
-                            redis_session_info = {
-                                'found': False,
-                                'key': redis_key,
-                                'message': 'Redis 中未找到对应的 Session 数据'
-                            }
-            except Exception as e:
-                redis_session_info = {'error': str(e)}
-        
-        return jsonify({
-            'authenticated': user is not None,
-            'user': user if user else None,
-            'cookies': cookies_info,
-            'session_cookie_name': session_cookie_name,
-            'session_cookie_value': session_cookie_value[:100] + '...' if session_cookie_value and len(session_cookie_value) > 100 else session_cookie_value,
-            'session_data': session_data,
-            'session_user_id': session_user_id,
-            'redis_session_info': redis_session_info,
-            'session_use_signer': current_app.config.get('SESSION_USE_SIGNER', False),
-            'session_key_prefix': current_app.config.get('SESSION_KEY_PREFIX', 'session:')
-        })
-    except Exception as e:
-        import traceback
-        return jsonify({
-            'error': '服务器内部错误',
-            'message': str(e),
-            'traceback': traceback.format_exc()
-        }), 500
+    user = get_current_user()
+    token = get_bearer_token()
+    return jsonify({
+        'authenticated': user is not None,
+        'user': serialize_user(user),
+        'has_bearer_token': bool(token),
+        'token_preview': f'{token[:16]}...' if token and len(token) > 16 else (token or None),
+    })
 
 
 @api_bp.route('/chat', methods=['POST'])
@@ -159,7 +73,7 @@ def api_chat():
 
     用法:
     - 方法/路径: `POST /api/chat`
-    - 认证: Session Cookie
+    - 认证: Bearer Token
     - 请求体: `{ "message": "...", "session_id": 1, "file_ids": [], "llm_provider": "...", "agent_mode": "normal" }`
     - 成功响应: `text/event-stream`，事件 `{ "type": "chunk"|"end"|"error", ... }`
     - 失败响应: 401 未登录；400 参数错误；429 访问过于频繁
@@ -243,7 +157,7 @@ def api_chat():
       500:
         description: 服务器内部错误
     security:
-      - sessionAuth: []
+      - bearerAuth: []
     """
     user = get_current_user()
     if not user:
@@ -321,7 +235,7 @@ def get_sessions():
 
     用法:
     - 方法/路径: `GET /api/sessions`
-    - 认证: Session Cookie
+    - 认证: Bearer Token
     - 成功响应: `{ "sessions": [...] }`
     - 失败响应: 401 未登录；500 获取失败
     ---
@@ -383,7 +297,7 @@ def get_sessions():
       500:
         description: 服务器内部错误
     security:
-      - sessionAuth: []
+      - bearerAuth: []
     """
     user = get_current_user()
     if not user:
@@ -404,7 +318,7 @@ def get_session_messages(session_id):
 
     用法:
     - 方法/路径: `GET /api/sessions/<session_id>/messages`
-    - 认证: Session Cookie
+    - 认证: Bearer Token
     - 成功响应: `{ "messages": [...] }`
     - 失败响应: 401 未登录；404 会话不存在或无权限；500 获取失败
     ---
@@ -492,7 +406,7 @@ def get_session_messages(session_id):
       500:
         description: 服务器内部错误
     security:
-      - sessionAuth: []
+      - bearerAuth: []
     """
     user = get_current_user()
     if not user:
@@ -520,7 +434,7 @@ def upload_file():
 
     用法:
     - 方法/路径: `POST /api/files`
-    - 认证: Session Cookie
+    - 认证: Bearer Token
     - 请求体: `multipart/form-data`，字段 `file`
     - 成功响应: `{ "success": true, "file_id": 1, "filename": "...", ... }`
     - 失败响应: 401 未登录；400 无文件或格式错误；500 上传失败
@@ -597,7 +511,7 @@ def upload_file():
       500:
         description: 服务器内部错误
     security:
-      - sessionAuth: []
+      - bearerAuth: []
     """
     user = get_current_user()
     if not user:
@@ -630,7 +544,7 @@ def get_files():
 
     用法:
     - 方法/路径: `GET /api/files`
-    - 认证: Session Cookie
+    - 认证: Bearer Token
     - 成功响应: `{ "files": [...] }`
     - 失败响应: 401 未登录；500 获取失败
     ---
@@ -691,7 +605,7 @@ def get_files():
       500:
         description: 服务器内部错误
     security:
-      - sessionAuth: []
+      - bearerAuth: []
     """
     user = get_current_user()
     if not user:
@@ -712,7 +626,7 @@ def get_file(file_id):
 
     用法:
     - 方法/路径: `GET /api/files/<file_id>`
-    - 认证: Session Cookie
+    - 认证: Bearer Token
     - 成功响应: `{ "id": 1, "filename": "...", "content_preview": "...", ... }`
     - 失败响应: 401 未登录；404 文件不存在或无权限；500 获取失败
     ---
@@ -779,7 +693,7 @@ def get_file(file_id):
       500:
         description: 服务器内部错误
     security:
-      - sessionAuth: []
+      - bearerAuth: []
     """
     user = get_current_user()
     if not user:
@@ -804,7 +718,7 @@ def delete_file(file_id):
 
     用法:
     - 方法/路径: `DELETE /api/files/<file_id>`
-    - 认证: Session Cookie
+    - 认证: Bearer Token
     - 成功响应: `{ "success": true }`
     - 失败响应: 401 未登录；400 文件不存在或无权限；500 删除失败
     ---
@@ -852,7 +766,7 @@ def delete_file(file_id):
       500:
         description: 服务器内部错误
     security:
-      - sessionAuth: []
+      - bearerAuth: []
     """
     user = get_current_user()
     if not user:
@@ -878,7 +792,7 @@ def get_image(file_id):
 
     用法:
     - 方法/路径: `GET /api/files/<file_id>/image`
-    - 认证: Session Cookie
+    - 认证: Bearer Token
     - 成功响应: 图片二进制流（`image/*`）
     - 失败响应: 401 未登录；404 非图片或文件不存在；500 获取失败
     ---
@@ -907,7 +821,7 @@ def get_image(file_id):
       500:
         description: 服务器内部错误
     security:
-      - sessionAuth: []
+      - bearerAuth: []
     """
     user = get_current_user()
     if not user:
@@ -997,7 +911,7 @@ def get_llm_providers():
 
     用法:
     - 方法/路径: `GET /api/llm/providers`
-    - 认证: Session Cookie
+    - 认证: Bearer Token
     - 成功响应: `{ "providers": [...], "default": "..." }`
     - 失败响应: 401 未登录；500 获取失败
     ---
@@ -1054,7 +968,7 @@ def get_llm_providers():
       500:
         description: 服务器内部错误
     security:
-      - sessionAuth: []
+      - bearerAuth: []
     """
     user = get_current_user()
     if not user:

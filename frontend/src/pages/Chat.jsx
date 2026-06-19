@@ -1,29 +1,96 @@
-import { useEffect, useState } from "react";
+/**
+ * 聊天主页面（阶段 3）。
+ *
+ * 职责总览：
+ * 1) 初始化
+ *    - 加载用户、会话列表、LLM 提供商
+ * 2) 会话切换
+ *    - 选择历史会话 / 新对话
+ * 3) 发送消息
+ *    - 文件上传 → POST /api/chat SSE
+ */
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Alert, Button, Card, Space, Spin, Typography, message } from "antd";
-import { LogoutOutlined, MessageOutlined } from "@ant-design/icons";
+import { Spin, message } from "antd";
+import RequireAuth from "../components/RequireAuth";
+import SessionSidebar from "../components/chat/SessionSidebar";
+import MessageList from "../components/chat/MessageList";
+import ChatComposer from "../components/chat/ChatComposer";
+import { clearAuth } from "../api/auth";
 import { apiFetch } from "../api/client";
-import { clearAuth, getStoredUser } from "../api/auth";
+import {
+  fetchLlmProviders,
+  fetchSessionMessages,
+  fetchSessions,
+  uploadChatFiles,
+} from "../services/chatApi";
+import { createChatStreamController, streamChatMessage } from "../hooks/useChatStream";
+import { useChatStore } from "../stores/chatStore";
+import "../styles/chat.css";
 
-const { Title, Paragraph, Text } = Typography;
-
-export default function Chat() {
+function ChatPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(getStoredUser());
-  const [sessions, setSessions] = useState([]);
+  const [bootLoading, setBootLoading] = useState(true);
+  const streamRef = useRef(null);
+
+  const user = useChatStore((s) => s.user);
+  const sessionId = useChatStore((s) => s.sessionId);
+  const sessions = useChatStore((s) => s.sessions);
+  const messages = useChatStore((s) => s.messages);
+  const streamText = useChatStore((s) => s.streamText);
+  const waitingReply = useChatStore((s) => s.waitingReply);
+  const sending = useChatStore((s) => s.sending);
+  const statusText = useChatStore((s) => s.statusText);
+  const llmProviders = useChatStore((s) => s.llmProviders);
+  const llmProvider = useChatStore((s) => s.llmProvider);
+  const agentMode = useChatStore((s) => s.agentMode);
+  const selectedFiles = useChatStore((s) => s.selectedFiles);
+  const isNewChatDraft = useChatStore((s) => s.isNewChatDraft);
+
+  const reloadSessions = useCallback(async () => {
+    const list = await fetchSessions();
+    useChatStore.setState({ sessions: list });
+    return list;
+  }, []);
+
+  const loadMessages = useCallback(async (sid) => {
+    const list = await fetchSessionMessages(sid);
+    useChatStore.setState({
+      messages: list.map((m) => ({
+        ...m,
+        id: m.id ?? `${m.role}-${m.created_at}`,
+      })),
+      sessionId: sid,
+      isNewChatDraft: false,
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      setLoading(true);
+    async function boot() {
       try {
-        const meData = await apiFetch("/api/auth/me");
-        const sessionData = await apiFetch("/api/sessions");
-        if (!cancelled) {
-          setUser(meData.user);
-          setSessions(sessionData.sessions || []);
+        const [meData, providerData, sessionList] = await Promise.all([
+          apiFetch("/api/auth/me"),
+          fetchLlmProviders(),
+          fetchSessions(),
+        ]);
+        if (cancelled) {
+          return;
+        }
+
+        useChatStore.setState({
+          user: meData.user,
+          llmProviders: providerData.providers,
+          defaultProvider: providerData.defaultProvider,
+          llmProvider: providerData.defaultProvider,
+          sessions: sessionList,
+          isNewChatDraft: sessionList.length === 0,
+        });
+
+        const withMessages = sessionList.find((s) => (s.message_count || 0) > 0) || sessionList[0];
+        if (withMessages) {
+          await loadMessages(withMessages.id);
         }
       } catch (error) {
         if (!cancelled) {
@@ -32,68 +99,174 @@ export default function Chat() {
         }
       } finally {
         if (!cancelled) {
-          setLoading(false);
+          setBootLoading(false);
         }
       }
     }
 
-    void load();
+    void boot();
     return () => {
       cancelled = true;
+      streamRef.current?.abort();
     };
-  }, [navigate]);
+  }, [loadMessages, navigate]);
 
   function handleLogout() {
     clearAuth();
-    message.success("已登出");
     navigate("/login", { replace: true });
   }
 
-  if (loading) {
+  function handleNewChat() {
+    if (waitingReply || sending) {
+      streamRef.current?.abort();
+    }
+    useChatStore.getState().resetChat();
+  }
+
+  async function handleSelectSession(sid) {
+    if (sid === sessionId) {
+      return;
+    }
+    if (waitingReply || sending) {
+      streamRef.current?.abort();
+    }
+    useChatStore.setState({
+      streamText: "",
+      waitingReply: false,
+      sending: false,
+      statusText: "",
+      selectedFiles: [],
+    });
+    try {
+      await loadMessages(sid);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "加载会话失败");
+    }
+  }
+
+  async function handleSend(text) {
+    const state = useChatStore.getState();
+    if (state.sending || state.waitingReply) {
+      return;
+    }
+
+    const pendingFiles = [...state.selectedFiles];
+
+    useChatStore.setState({
+      sending: true,
+      waitingReply: true,
+      streamText: "",
+      streamUsage: null,
+      statusText: "正在思考...",
+      activeStreamSessionId: state.sessionId,
+      selectedFiles: [],
+    });
+
+    try {
+      const uploadedFiles = await uploadChatFiles(pendingFiles);
+      const fileIds = uploadedFiles.map((f) => f.server_id || f.id).filter(Boolean);
+      const displayFiles = uploadedFiles.map((f) => ({
+        id: f.server_id || f.id,
+        filename: f.original_filename,
+        file_size: f.file_size,
+        is_image: f.is_image,
+      }));
+
+      useChatStore.setState({
+        messages: [
+          ...state.messages,
+          {
+            id: `user-${Date.now()}`,
+            role: "user",
+            content: text,
+            created_at: new Date().toISOString(),
+            files: displayFiles,
+          },
+        ],
+      });
+      streamRef.current?.abort();
+      streamRef.current = createChatStreamController();
+
+      await streamChatMessage({
+        message: text,
+        sessionId: useChatStore.getState().sessionId,
+        fileIds,
+        llmProvider: useChatStore.getState().llmProvider,
+        agentMode: useChatStore.getState().agentMode,
+        storeApi: useChatStore,
+        signal: streamRef.current.signal,
+        onReloadSessions: () => {
+          void reloadSessions();
+        },
+      });
+
+      await reloadSessions();
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        message.error(error instanceof Error ? error.message : "发送失败");
+        useChatStore.setState({ statusText: "请求失败" });
+      }
+    } finally {
+      useChatStore.setState({ sending: false, waitingReply: false, activeStreamSessionId: null });
+    }
+  }
+
+  function handleStop() {
+    streamRef.current?.abort();
+    useChatStore.setState({ sending: false, waitingReply: false });
+  }
+
+  if (bootLoading) {
     return (
-      <div className="page-shell">
-        <Spin tip="加载中..." />
+      <div className="chat-loading">
+        <Spin tip="加载聊天..." />
       </div>
     );
   }
 
   return (
-    <div className="page-shell chat-shell">
-      <Card className="hero-card chat-card" bordered={false}>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
-          <Space align="center" style={{ justifyContent: "space-between", width: "100%" }}>
-            <Space align="center">
-              <MessageOutlined style={{ fontSize: 24, color: "#667eea" }} />
-              <Title level={3} style={{ margin: 0 }}>
-                聊天工作台
-              </Title>
-            </Space>
-            <Button icon={<LogoutOutlined />} onClick={handleLogout}>
-              退出
-            </Button>
-          </Space>
+    <div className="chat-app">
+      <SessionSidebar
+        user={user}
+        sessions={sessions}
+        sessionId={sessionId}
+        onNewChat={handleNewChat}
+        onSelectSession={handleSelectSession}
+        onLogout={handleLogout}
+      />
 
-          <Alert
-            type="info"
-            showIcon
-            message="阶段 2 已完成 Bearer 认证"
-            description="聊天 UI 将在阶段 3 实现。当前页面用于验证登录态与 /api/sessions 鉴权。"
-          />
+      <main className="chat-main">
+        <MessageList
+          messages={messages}
+          streamText={streamText}
+          waitingReply={waitingReply}
+          showWelcome={isNewChatDraft || !sessionId}
+        />
 
-          <Paragraph>
-            当前用户：<Text strong>{user?.username}</Text>
-            {user?.is_admin ? <Text type="warning">（管理员）</Text> : null}
-          </Paragraph>
-
-          <Paragraph type="secondary">
-            已加载会话数：{sessions.length}
-          </Paragraph>
-
-          <Button type="primary" disabled>
-            开始聊天（阶段 3 开放）
-          </Button>
-        </Space>
-      </Card>
+        <ChatComposer
+          disabled={bootLoading}
+          sending={sending}
+          waitingReply={waitingReply}
+          llmProviders={llmProviders}
+          llmProvider={llmProvider}
+          agentMode={agentMode}
+          selectedFiles={selectedFiles}
+          statusText={statusText}
+          onChangeProvider={(v) => useChatStore.setState({ llmProvider: v })}
+          onChangeAgentMode={(v) => useChatStore.setState({ agentMode: v })}
+          onChangeFiles={(files) => useChatStore.setState({ selectedFiles: files })}
+          onSend={handleSend}
+          onStop={handleStop}
+        />
+      </main>
     </div>
+  );
+}
+
+export default function Chat() {
+  return (
+    <RequireAuth>
+      <ChatPage />
+    </RequireAuth>
   );
 }

@@ -5,8 +5,9 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f0f2f5;
   font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+  color: #262626;
 }
 
 .page-shell {
@@ -15,29 +16,51 @@ body {
   align-items: center;
   justify-content: center;
   padding: 24px;
+  background: linear-gradient(180deg, #e6f4ff 0%, #f0f2f5 100%);
 }
 
 .hero-card {
   width: min(720px, 100%);
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
-}
-
-.center-row {
-  display: flex;
-  justify-content: center;
-  padding: 24px 0;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 80, 179, 0.08);
+  border: 1px solid #e6f0fa;
 }
 
 .auth-card {
   width: min(420px, 100%);
 }
 
-.chat-shell {
-  align-items: flex-start;
-  padding-top: 48px;
+.auth-card .ant-typography {
+  color: #262626;
 }
 
-.chat-card {
-  width: min(860px, 100%);
+.auth-brand {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-brand-mark {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #0050b3;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.auth-brand-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #0050b3;
+}
+
+.auth-brand-sub {
+  font-size: 13px;
+  color: #8c8c8c;
+  margin-top: 4px;
 }

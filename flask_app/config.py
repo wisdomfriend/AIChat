@@ -93,8 +93,6 @@ class Config:
         self.AUTH_TOKEN_SECRET = os.environ.get('AUTH_TOKEN_SECRET', self.SECRET_KEY)
         self.AUTH_TOKEN_MAX_AGE = int(os.environ.get('AUTH_TOKEN_MAX_AGE', '86400'))
 
-        # 旧版 SSR Session 路由兼容项（阶段 5 移除）
-        self.PERMANENT_SESSION_LIFETIME = int(os.environ.get('SESSION_LIFETIME', '604800'))
         # Flask配置
         self.FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
         

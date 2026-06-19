@@ -1,0 +1,95 @@
+.gov-app-layout {
+  min-height: 100vh;
+}
+
+.gov-sider {
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.08);
+}
+
+.gov-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 64px;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.gov-brand-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #0050b3;
+  color: #fff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.gov-brand-title {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.gov-brand-sub {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+}
+
+.gov-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: #0050b3 !important;
+  box-shadow: 0 2px 8px rgba(0, 80, 179, 0.15);
+}
+
+.gov-header-title {
+  color: #fff !important;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.gov-user-btn {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.gov-user-btn:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.gov-content {
+  margin: 16px;
+  padding: 0;
+  min-height: calc(100vh - 64px - 32px);
+}
+
+.gov-page-card {
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.gov-stat-card .ant-statistic-title {
+  font-size: 14px;
+  color: #595959;
+}
+
+.gov-stat-card .ant-statistic-content {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.gov-section-title {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #262626;
+  border-left: 4px solid #0050b3;
+  padding-left: 12px;
+}

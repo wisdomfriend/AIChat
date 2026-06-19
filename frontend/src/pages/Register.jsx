@@ -4,7 +4,7 @@ import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { apiFetch } from "../api/client";
 import { isAuthenticated } from "../api/auth";
 
-const { Title, Paragraph, Text } = Typography;
+const { Text } = Typography;
 
 export default function Register() {
   const navigate = useNavigate();
@@ -38,10 +38,11 @@ export default function Register() {
   return (
     <div className="page-shell">
       <Card className="hero-card auth-card" bordered={false}>
-        <Title level={3} style={{ marginTop: 0 }}>
-          注册账号
-        </Title>
-        <Paragraph type="secondary">创建新用户后即可登录使用</Paragraph>
+        <div className="auth-brand">
+          <div className="auth-brand-mark">AI</div>
+          <div className="auth-brand-title">账号注册</div>
+          <div className="auth-brand-sub">创建账号后即可使用智能对话服务</div>
+        </div>
 
         <Form form={form} layout="vertical" onFinish={onFinish} requiredMark={false}>
           <Form.Item

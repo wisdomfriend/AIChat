@@ -4,7 +4,7 @@ import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { apiFetch } from "../api/client";
 import { isAuthenticated, setAuth } from "../api/auth";
 
-const { Title, Paragraph, Text } = Typography;
+const { Text } = Typography;
 
 export default function Login() {
   const navigate = useNavigate();
@@ -38,10 +38,11 @@ export default function Login() {
   return (
     <div className="page-shell">
       <Card className="hero-card auth-card" bordered={false}>
-        <Title level={3} style={{ marginTop: 0 }}>
-          登录 AIChat
-        </Title>
-        <Paragraph type="secondary">使用 Bearer Token 认证（阶段 2）</Paragraph>
+        <div className="auth-brand">
+          <div className="auth-brand-mark">AI</div>
+          <div className="auth-brand-title">智能政务助手</div>
+          <div className="auth-brand-sub">AIChat 统一登录</div>
+        </div>
 
         <Form form={form} layout="vertical" onFinish={onFinish} requiredMark={false}>
           <Form.Item

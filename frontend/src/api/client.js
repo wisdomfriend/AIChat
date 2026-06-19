@@ -22,6 +22,33 @@ function buildUrl(path) {
   return `${DEFAULT_API_BASE}${path}`;
 }
 
+export { buildUrl };
+
+export async function apiUpload(path, formData, token) {
+  const headers = {};
+  const authToken = token !== undefined ? token : getToken();
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const response = await fetch(buildUrl(path), {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const message = data.message || data.error || `请求失败: ${response.status}`;
+    if (response.status === 401) {
+      clearAuth();
+    }
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
 export async function apiFetch(path, options = {}, token) {
   const headers = {
     "Content-Type": "application/json",

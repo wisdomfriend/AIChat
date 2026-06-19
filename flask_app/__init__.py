@@ -192,6 +192,10 @@ def create_app(config_name='default'):
             {
                 "name": "模型",
                 "description": "LLM 模型提供商相关接口"
+            },
+            {
+                "name": "统计",
+                "description": "Token 用量统计（用户/管理员）"
             }
         ]
     }

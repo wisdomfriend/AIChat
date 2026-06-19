@@ -8,6 +8,7 @@ Blueprint 总览：
 - `dashboard_bp`  用户仪表板（/dashboard，需 admin）
 - `admin_bp`      管理页面（/admin，需 admin）
 - `api_bp`        REST API（/api/*，Bearer 认证）
+- `stats_api_bp`  Token 统计 API（/api/stats/*）
 """
 from flask import Blueprint
 
@@ -20,7 +21,7 @@ def register_routes(app):
     - 挂载前缀: `/api`（`api_bp`）、`/api/auth`（`auth_api_bp`）
     - 其余 Blueprint 无前缀
     """
-    from . import admin, api, auth, auth_api, chat, dashboard, health
+    from . import admin, api, auth, auth_api, chat, dashboard, health, stats_api
 
     app.register_blueprint(health.health_bp)
     app.register_blueprint(auth.auth_bp)
@@ -29,3 +30,4 @@ def register_routes(app):
     app.register_blueprint(admin.admin_bp)
     app.register_blueprint(api.api_bp, url_prefix='/api')
     app.register_blueprint(auth_api.auth_api_bp, url_prefix='/api/auth')
+    app.register_blueprint(stats_api.stats_api_bp, url_prefix='/api/stats')

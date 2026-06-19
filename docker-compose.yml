@@ -4,8 +4,7 @@ services:
     image: nginx:alpine
     container_name: nginx-shop
     ports:
-      - "80:80"
-      - "443:443"  # HTTPS 端口
+      - "5190:80"
     environment:
       - TZ=Asia/Shanghai
     volumes:
@@ -13,11 +12,10 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       # 挂载日志目录
       - ./logs:/var/log/nginx
-      # 挂载 SSL 证书目录
-      - ./ssl:/etc/nginx/ssl:ro
     restart: unless-stopped
     depends_on:
-      - flask-app
+      flask-app:
+        condition: service_healthy
     networks:
       - nginx-network
 
@@ -32,6 +30,10 @@ services:
       - ./uploads:/app/uploads
     environment:
       - TZ=Asia/Shanghai
+      # Docker 网络内使用服务名，覆盖 .env 中的宿主机 IP
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - REDIS_HOST=redis
     env_file:
       - .env
     depends_on:
@@ -40,6 +42,12 @@ services:
       redis:
         condition: service_started
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/login', timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
     networks:
       - nginx-network
 

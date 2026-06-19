@@ -12,7 +12,8 @@ Service 总览（按调用关系）：
    - `MySQLChatMessageHistory`  LangChain 消息持久化
 3) 文件
    - `FileService`  文件上传、文本提取与上下文拼接
-"""from .auth_service import AuthService
+"""
+from .auth_service import AuthService
 from .auth_token import admin_required, create_user_token, login_required, verify_user_token
 from .chat_service import ChatService
 from .file_service import FileService

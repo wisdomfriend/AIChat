@@ -22,11 +22,11 @@
 ###  核心特性
 
 -  **AI聊天功能**：集成 DeepSeek API，支持实时对话交互，上传文件，支持公式/代码/markdown的格式化显示
--  **用户认证**：完整的登录/注册功能，Redis Session 管理
+-  **用户认证**：Bearer Token 登录/注册（React SPA + Flask API）
 -  **使用统计**：Token 使用量统计和记录查询
--  **管理后台**：API Key 管理和全局统计
--  **容器化部署**：Docker Compose 一键部署
--  **响应式设计**：兼容手机端访问
+-  **管理后台**：全局 Token 统计（React Admin 页）
+-  **容器化部署**：Nginx + React + Flask + MySQL + Redis 一键部署
+-  **政企风格 UI**：Ant Design 5 统一界面
 
 ###  在线演示
 
@@ -99,9 +99,25 @@ docker-compose down
 
 #### 访问服务
 
-启动容器后，可以通过以下方式访问：
+启动容器后，通过 Nginx 统一入口访问（HTTPS 需配置 `ssl/` 证书）：
 
-- **Flask 应用直接访问**: `http://localhost:5000`
+- **Web 应用（React SPA）**: `https://your-domain/` 或本地 `http://localhost/`
+- **API 文档**: `/api-docs`（经 Nginx 代理到 Flask）
+- **健康检查**: `/health`
+
+开发模式下可分别启动前后端：
+
+```bash
+# 终端 1：Flask API
+python run.py
+
+# 终端 2：React 前端
+cd frontend
+npm install
+npm run dev
+```
+
+浏览器访问 `http://localhost:5173`，API 默认同源或通过 `VITE_API_BASE_URL` 指向 Flask。
 
 
 ## 开发说明
@@ -173,17 +189,23 @@ docker-compose restart nginx
 主要配置项：
 - **镜像**: nginx:alpine
 - **配置挂载**: `nginx/nginx.conf` 通过 volumes 挂载，修改后重启即可生效
+- **SPA**: `/` → React 静态资源 + fallback
+- **API**: `/api/` → Flask（SSE 关闭缓冲）
 - **反向代理**: 转发到 Flask 应用 (flask-app:5000)
 
 ### Flask 应用配置
 
+- **运行端口**: 5000（容器内）
+- **WSGI 服务器**: Gunicorn + gevent（SSE 流式）
+- **数据库**: MySQL（通过环境变量配置）
+- **认证**: Bearer Token（`itsdangerous` 签名，`AUTH_TOKEN_SECRET`）
+- **Redis**: 仅用于聊天 API 限流（`rate_limit:chat:*` 键）
 
-- **运行端口**: 5000 
-- **WSGI 服务器**: Gunicorn (4 workers)
-- **数据库**: MySQL (通过环境变量配置)
-- **Session**: Redis 存储（使用自定义 `FixedRedisSessionInterface`）
-  - Session 过期时间：7 天（可配置）
-  - Session ID 签名：启用（增强安全性）
+### React 前端
+
+- **目录**: `frontend/`
+- **构建**: `npm run build` → 产物由 Nginx 挂载 `frontend_dist` volume
+- **路由**: React Router（`/login`、`/chat`、`/dashboard`、`/admin`）
 
 ### MySQL 配置
 
@@ -194,8 +216,8 @@ docker-compose restart nginx
 ### Redis 配置
 
 - **版本**: Redis 7 (Alpine)
-- **数据持久化**: Docker Volume + AOF (Append Only File)
-- **端口**: 6379
+- **数据持久化**: Docker Volume + AOF
+- **用途**: 聊天 API 访问频率限制（非 Session 存储）
 
 
 ## 故障排查
@@ -233,12 +255,10 @@ docker-compose restart nginx
 
 以下是计划中的功能改进和优化：
 
-1. ✅ **集成 Redis 缓存**
+1. ✅ **Redis 限流**
    - ✅ 添加 Redis 服务到 Docker Compose
-   - ✅ 将 Flask Session 从默认存储迁移到 Redis
-   - ✅ 提升 Session 管理的性能和可扩展性
-   - ✅ 支持多实例部署时的 Session 共享
-   - ✅ 自定义 Session 接口修复兼容性问题
+   - ✅ 聊天 API 多层级滑动窗口限流
+   - ✅ Bearer Token 认证（已替代 Redis Session）
 
 2. ✅ **实现流式聊天响应**
    - ✅ 修改 `/api/chat` 接口支持流式输出

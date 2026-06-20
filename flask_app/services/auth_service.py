@@ -71,7 +71,8 @@ class AuthService:
                     'user': {
                         'id': user.id,
                         'username': user.username,
-                        'last_login': user.last_login
+                        'last_login': user.last_login,
+                        'is_admin': bool(user.is_admin) if hasattr(user, 'is_admin') else False,
                     }
                 }
             else:

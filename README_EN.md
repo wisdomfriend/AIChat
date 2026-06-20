@@ -21,11 +21,11 @@
 ### Core Features
 
 - **AI Chat Functionality**: Integrated DeepSeek API, supports real-time conversation interaction, file upload, and formatted display of formulas/code/markdown
-- **User Authentication**: Complete login/registration functionality with Redis Session management
+- **User Authentication**: Bearer Token login/registration (React SPA + Flask API)
 - **Usage Statistics**: Token usage statistics and record queries
-- **Admin Dashboard**: API Key management and global statistics
-- **Containerized Deployment**: One-click deployment with Docker Compose
-- **Responsive Design**: Compatible with mobile devices
+- **Admin Dashboard**: Global token statistics (React Admin page)
+- **Containerized Deployment**: Nginx + React + Flask + MySQL + Redis one-click deployment
+- **Enterprise UI**: Ant Design 5 unified interface
 
 ### Online Demo
 
@@ -96,9 +96,23 @@ docker-compose down
 
 #### Access Services
 
-After starting the containers, you can access the services in the following ways:
+After starting the containers, access via Nginx unified entry:
 
-- **Direct Flask Application Access**: `http://localhost:5000`
+- **Web App (React SPA)**: `https://your-domain/` or local `http://localhost/`
+- **API Docs**: `/api-docs`
+- **Health Check**: `/health`
+
+For local development:
+
+```bash
+# Terminal 1: Flask API
+python run.py
+
+# Terminal 2: React frontend
+cd frontend && npm install && npm run dev
+```
+
+Open `http://localhost:5173` in browser.
 
 ## Development Guide
 
@@ -173,12 +187,11 @@ Main configuration items:
 
 ### Flask Application Configuration
 
-- **Running Port**: 5000
-- **WSGI Server**: Gunicorn (4 workers)
-- **Database**: MySQL (configured via environment variables)
-- **Session**: Redis storage (using custom `FixedRedisSessionInterface`)
-  - Session expiration time: 7 days (configurable)
-  - Session ID signing: Enabled (enhanced security)
+- **Running Port**: 5000 (inside container)
+- **WSGI Server**: Gunicorn + gevent (SSE streaming)
+- **Database**: MySQL (via environment variables)
+- **Authentication**: Bearer Token (`itsdangerous`, `AUTH_TOKEN_SECRET`)
+- **Redis**: Chat API rate limiting only (`rate_limit:chat:*` keys)
 
 ### MySQL Configuration
 
@@ -190,7 +203,7 @@ Main configuration items:
 
 - **Version**: Redis 7 (Alpine)
 - **Data Persistence**: Docker Volume + AOF (Append Only File)
-- **Port**: 6379
+- **Purpose**: Chat API rate limiting (not Session storage)
 
 ## Troubleshooting
 
@@ -227,12 +240,10 @@ Main configuration items:
 
 The following are planned feature improvements and optimizations:
 
-1. ✅ **Redis Cache Integration**
+1. ✅ **Redis rate limiting**
    - ✅ Added Redis service to Docker Compose
-   - ✅ Migrated Flask Session from default storage to Redis
-   - ✅ Improved Session management performance and scalability
-   - ✅ Support for Session sharing in multi-instance deployments
-   - ✅ Custom Session interface fixes compatibility issues
+   - ✅ Multi-tier sliding window rate limits for chat API
+   - ✅ Bearer Token auth (replaced Redis Session)
 
 2. ✅ **Streaming Chat Response**
    - ✅ Modified `/api/chat` endpoint to support streaming output

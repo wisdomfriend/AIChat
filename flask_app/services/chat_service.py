@@ -17,7 +17,7 @@ from datetime import datetime
 from sqlalchemy import func
 
 from ..config import Config
-from ..database import get_session
+from ..database import get_session, ensure_schema
 from ..models import ApiKey, ChatMessage, ChatSession, TokenUsage
 from .agent_service import AgentService
 from .baidu_search_service import BaiduSearchService
@@ -120,7 +120,7 @@ class ChatService:
         finally:
             db.close()
     
-    def get_sessions(self, user_id, limit=50):
+    def get_sessions(self, user_id, limit=200):
         """获取用户的会话列表（含消息数）。
 
         用法:
@@ -128,13 +128,24 @@ class ChatService:
         - 参数: `user_id`、`limit`（默认 50）
         - 返回值: `[{ id, title, created_at, updated_at, message_count }, ...]`
         """
+        ensure_schema()
         db = get_session()
         try:
-            sessions = db.query(ChatSession).filter(
-                ChatSession.user_id == user_id
-            ).order_by(
-                ChatSession.updated_at.desc()
-            ).limit(limit).all()
+            try:
+                sessions = db.query(ChatSession).filter(
+                    ChatSession.user_id == user_id
+                ).order_by(
+                    ChatSession.is_pinned.desc(),
+                    ChatSession.updated_at.desc(),
+                ).limit(limit).all()
+            except Exception as order_error:
+                print(f"Get sessions fallback order: {order_error}")
+                db.rollback()
+                sessions = db.query(ChatSession).filter(
+                    ChatSession.user_id == user_id
+                ).order_by(
+                    ChatSession.updated_at.desc()
+                ).limit(limit).all()
 
             session_ids = [s.id for s in sessions]
             message_count_map = {}
@@ -154,7 +165,8 @@ class ChatService:
                 'title': s.title,
                 'created_at': s.created_at.isoformat() if s.created_at else None,
                 'updated_at': s.updated_at.isoformat() if s.updated_at else None,
-                'message_count': message_count_map.get(s.id, 0)
+                'message_count': message_count_map.get(s.id, 0),
+                'is_pinned': bool(getattr(s, 'is_pinned', False)),
             } for s in sessions]
         except Exception as e:
             print(f"Get sessions error: {e}")
@@ -280,6 +292,51 @@ class ChatService:
             return False
         except Exception as e:
             print(f"Update session title error: {e}")
+            db.rollback()
+            return False
+        finally:
+            db.close()
+
+    def set_session_pinned(self, session_id, user_id, pinned=True):
+        """固定或解除固定会话。"""
+        ensure_schema()
+        db = get_session()
+        try:
+            session = db.query(ChatSession).filter(
+                ChatSession.id == session_id,
+                ChatSession.user_id == user_id
+            ).first()
+
+            if not session:
+                return False
+
+            session.is_pinned = bool(pinned)
+            db.commit()
+            return True
+        except Exception as e:
+            print(f"Set session pinned error: {e}")
+            db.rollback()
+            return False
+        finally:
+            db.close()
+
+    def delete_session(self, session_id, user_id):
+        """删除会话及其关联消息（依赖数据库级联）。"""
+        db = get_session()
+        try:
+            session = db.query(ChatSession).filter(
+                ChatSession.id == session_id,
+                ChatSession.user_id == user_id
+            ).first()
+
+            if not session:
+                return False
+
+            db.delete(session)
+            db.commit()
+            return True
+        except Exception as e:
+            print(f"Delete session error: {e}")
             db.rollback()
             return False
         finally:

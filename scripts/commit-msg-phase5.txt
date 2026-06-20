@@ -1,0 +1,4 @@
+chore: 阶段5 移除旧 SSR/Session 并完成 React 全栈清理
+
+删除 Jinja 模板与 SSR 路由，移除 Flask-Session；
+Swagger/API 统一 bearerAuth；更新 README 与 .env.example。

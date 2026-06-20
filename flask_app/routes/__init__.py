@@ -1,11 +1,10 @@
 """路由注册模块。
 
 Blueprint 总览：
-- `auth_bp`       认证页面（/、/login、/register、/logout）
-- `chat_bp`       聊天页面（/chat，需登录）
-- `dashboard_bp`  用户仪表板（/dashboard，需 admin）
-- `admin_bp`      管理页面（/admin，需 admin）
-- `api_bp`        REST API（/api/*，Session 认证）
+- `health_bp`     健康检查（/health）
+- `auth_api_bp`   Bearer Token 认证 API（/api/auth/*）
+- `api_bp`        REST API（/api/*，Bearer 认证）
+- `stats_api_bp`  Token 统计 API（/api/stats/*）
 """
 from flask import Blueprint
 
@@ -15,12 +14,11 @@ def register_routes(app):
 
     用法:
     - 调用方: `flask_app.create_app()` 应用工厂
-    - `api_bp` 挂载前缀 `/api`，其余 Blueprint 无前缀
+    - 挂载前缀: `/api`（`api_bp`）、`/api/auth`（`auth_api_bp`）、`/api/stats`（`stats_api_bp`）
     """
-    from . import admin, api, auth, chat, dashboard
+    from . import api, auth_api, health, stats_api
 
-    app.register_blueprint(auth.auth_bp)
-    app.register_blueprint(chat.chat_bp)
-    app.register_blueprint(dashboard.dashboard_bp)
-    app.register_blueprint(admin.admin_bp)
+    app.register_blueprint(health.health_bp)
     app.register_blueprint(api.api_bp, url_prefix='/api')
+    app.register_blueprint(auth_api.auth_api_bp, url_prefix='/api/auth')
+    app.register_blueprint(stats_api.stats_api_bp, url_prefix='/api/stats')

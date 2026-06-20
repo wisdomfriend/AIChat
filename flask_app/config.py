@@ -2,12 +2,15 @@
 
 职责总览：
 1) 基础配置
-   - `Config`  从环境变量读取 MySQL、Redis、Session、LLM、搜索等配置
+   - `Config`  从环境变量读取 MySQL、Redis 限流、Bearer Token、LLM、搜索等配置
 2) 环境变体
    - `DevelopmentConfig`  开发环境（DEBUG=True）
    - `ProductionConfig`   生产环境（DEBUG=False）
 3) 工厂函数
    - `create_config()`  按名称创建配置实例（需在 load_dotenv 之后调用）
+4) 辅助函数
+   - `allowed_origins()`  CORS 允许的前端来源
+   - `resolve_log_dir()`  应用日志目录
 """
 import os
 import logging
@@ -62,7 +65,7 @@ class Config:
 
         用法:
         - 调用方: `create_config()`、各 Service 直接实例化
-        - 环境变量: `SECRET_KEY`、`MYSQL_*`、`REDIS_*`、`SESSION_LIFETIME`、`LLM_*` 等
+        - 环境变量: `SECRET_KEY`、`MYSQL_*`、`REDIS_*`、`AUTH_TOKEN_*`、`LLM_*` 等
         - 副作用: 调用 `_validate_config()` 校验生产环境必填项
         """
         # 从环境变量读取配置（此时.env文件应该已经加载）
@@ -75,26 +78,21 @@ class Config:
         self.MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'guopengfei')
         self.MYSQL_DB = os.environ.get('MYSQL_DB', 'flask_app')
         
-        # Redis配置
+        # Redis 配置（聊天限流；应用工厂注入 REDIS_CLIENT）
         self.REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')
         self.REDIS_PORT = int(os.environ.get('REDIS_PORT', '6379'))
         self.REDIS_DB = int(os.environ.get('REDIS_DB', '0'))
-        # 处理REDIS_PASSWORD：如果为空字符串、"None"或"null"，则设为None
         redis_password = os.environ.get('REDIS_PASSWORD', None)
         if redis_password in (None, '', 'None', 'null', 'NULL'):
             self.REDIS_PASSWORD = None
         else:
             self.REDIS_PASSWORD = redis_password
-        
-        # Session配置 - 使用Redis存储Session
-        self.SESSION_TYPE = 'redis'
-        self.SESSION_REDIS = None  # 将在应用初始化时设置
-        # Session过期时间：7天（单位：秒）
-        self.PERMANENT_SESSION_LIFETIME = int(os.environ.get('SESSION_LIFETIME', '604800'))  # 默认7天
-        self.SESSION_PERMANENT = True  # 启用永久Session
-        self.SESSION_USE_SIGNER = True  # 对Session ID进行签名，增强安全性
-        self.SESSION_KEY_PREFIX = 'session:'  # Redis中Session的键前缀
-        
+        self.REDIS_CLIENT = None  # 应用初始化时注入
+
+        # Bearer Token 认证（React 前后端分离）
+        self.AUTH_TOKEN_SECRET = os.environ.get('AUTH_TOKEN_SECRET', self.SECRET_KEY)
+        self.AUTH_TOKEN_MAX_AGE = int(os.environ.get('AUTH_TOKEN_MAX_AGE', '86400'))
+
         # Flask配置
         self.FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
         

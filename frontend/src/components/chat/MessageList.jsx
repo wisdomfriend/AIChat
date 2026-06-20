@@ -7,26 +7,30 @@ import StreamingBlock from "./StreamingBlock";
 
 export default function MessageList({ messages, streamText, waitingReply, showWelcome }) {
   const bottomRef = useRef(null);
+  const isEmpty = messages.length === 0 && !streamText;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamText, waitingReply]);
 
   return (
-    <div className="chat-messages">
-      {showWelcome && messages.length === 0 && !streamText && (
-        <div className="welcome-screen">
-          <h1>智能政务助手</h1>
-          <p>请在下方输入您的问题，系统将为您提供专业、准确的智能问答服务。</p>
+    <div className={`chat-messages ${isEmpty && showWelcome ? "chat-messages-empty" : ""}`}>
+      {showWelcome && isEmpty && (
+        <div className="welcome-center">
+          <h1 className="welcome-heading">从哪里开始？</h1>
         </div>
       )}
 
-      {messages.map((msg) => (
-        <MessageItem key={msg.id} message={msg} />
-      ))}
+      {!isEmpty && (
+        <div className="message-stream">
+          {messages.map((msg) => (
+            <MessageItem key={msg.id} message={msg} />
+          ))}
 
-      {(waitingReply || streamText) && (
-        <StreamingBlock streamText={streamText} waitingReply={waitingReply} />
+          {(waitingReply || streamText) && (
+            <StreamingBlock streamText={streamText} waitingReply={waitingReply} />
+          )}
+        </div>
       )}
 
       <div ref={bottomRef} />

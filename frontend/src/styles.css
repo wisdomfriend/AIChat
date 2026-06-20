@@ -5,9 +5,9 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: #f0f2f5;
+  background: #f0f5fa;
   font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
-  color: #262626;
+  color: #1f2937;
 }
 
 .page-shell {
@@ -16,14 +16,17 @@ body {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: linear-gradient(180deg, #e6f4ff 0%, #f0f2f5 100%);
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(22, 119, 255, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(64, 150, 255, 0.06) 0%, transparent 50%),
+    #f0f5fa;
 }
 
 .hero-card {
   width: min(720px, 100%);
-  border-radius: 4px;
-  box-shadow: 0 4px 16px rgba(0, 80, 179, 0.08);
-  border: 1px solid #e6f0fa;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e3eaf3;
 }
 
 .auth-card {
@@ -31,36 +34,37 @@ body {
 }
 
 .auth-card .ant-typography {
-  color: #262626;
+  color: #1f2937;
 }
 
 .auth-brand {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 .auth-brand-mark {
   display: inline-flex;
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
-  background: #0050b3;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4096ff 0%, #1677ff 100%);
   color: #fff;
   font-weight: 700;
-  font-size: 16px;
-  margin-bottom: 12px;
+  font-size: 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 6px 16px rgba(22, 119, 255, 0.25);
 }
 
 .auth-brand-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
-  color: #0050b3;
+  color: #1f2937;
 }
 
 .auth-brand-sub {
   font-size: 13px;
-  color: #8c8c8c;
-  margin-top: 4px;
+  color: #94a3b8;
+  margin-top: 6px;
 }

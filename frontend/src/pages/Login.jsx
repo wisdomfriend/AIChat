@@ -40,7 +40,7 @@ export default function Login() {
       <Card className="hero-card auth-card" bordered={false}>
         <div className="auth-brand">
           <div className="auth-brand-mark">AI</div>
-          <div className="auth-brand-title">智能政务助手</div>
+          <div className="auth-brand-title">智能助手</div>
           <div className="auth-brand-sub">AIChat 统一登录</div>
         </div>
 

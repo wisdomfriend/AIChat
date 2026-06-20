@@ -35,7 +35,7 @@ function PeriodStats({ periodKey, data }) {
           <Statistic
             title="Total"
             value={data.total}
-            valueStyle={{ fontSize: 20, color: "#0050b3" }}
+            valueStyle={{ fontSize: 20, color: "#1677ff" }}
           />
         </Col>
         <Col span={12}>

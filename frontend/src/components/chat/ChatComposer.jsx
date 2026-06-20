@@ -1,11 +1,14 @@
 /**
- * 聊天输入区：模型选择、Agent 模式、文件上传、发送。
+ * ChatGPT 式圆角输入框 + 快捷 chips。
  */
-import { useRef } from "react";
-import { Button, Select, Upload, message as antMessage } from "antd";
+import { useRef, useState } from "react";
+import { Button, Dropdown, Select, message as antMessage } from "antd";
 import {
+  EditOutlined,
+  FileSearchOutlined,
   GlobalOutlined,
   PaperClipOutlined,
+  PlusOutlined,
   SendOutlined,
   StopOutlined,
 } from "@ant-design/icons";
@@ -18,23 +21,44 @@ const AGENT_OPTIONS = [
   { value: "plan_execute", label: "规划与执行" },
 ];
 
+const QUICK_PROMPTS = [
+  {
+    key: "doc",
+    label: "写一份通知",
+    icon: <EditOutlined />,
+    text: "请帮我写一份正式的通知公文，主题是：",
+  },
+  {
+    key: "summary",
+    label: "总结要点",
+    icon: <FileSearchOutlined />,
+    text: "请用条目形式总结以下内容的核心要点：",
+  },
+  {
+    key: "search",
+    label: "联网查询",
+    icon: <GlobalOutlined />,
+    text: "请搜索并整理以下问题的最新信息：",
+    agentMode: "web_search",
+  },
+];
+
 export default function ChatComposer({
   disabled,
   sending,
   waitingReply,
-  llmProviders,
-  llmProvider,
   agentMode,
   selectedFiles,
   statusText,
-  onChangeProvider,
   onChangeAgentMode,
   onChangeFiles,
   onSend,
   onStop,
+  centered = false,
 }) {
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -62,7 +86,19 @@ export default function ChatComposer({
     }
   }
 
-  async function handleFileChange(e) {
+  function applyQuickPrompt(item) {
+    if (item.agentMode) {
+      onChangeAgentMode(item.agentMode);
+    }
+    if (textareaRef.current) {
+      textareaRef.current.value = item.text;
+      textareaRef.current.focus();
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }
+
+  function handleFileChange(e) {
     const files = Array.from(e.target.files || []);
     e.target.value = "";
     if (!files.length) {
@@ -81,44 +117,47 @@ export default function ChatComposer({
       });
     }
     onChangeFiles(next);
+    setToolsOpen(false);
   }
 
   function removeFile(id) {
     onChangeFiles(selectedFiles.filter((f) => f.id !== id));
   }
 
-  const providerOptions = llmProviders.map((p) => ({
-    value: p.id,
-    label: p.display_name || p.name || p.id,
-  }));
+  const toolMenuItems = [
+    {
+      key: "file",
+      icon: <PaperClipOutlined />,
+      label: "上传文件",
+      onClick: () => fileInputRef.current?.click(),
+    },
+    {
+      key: "web",
+      icon: <GlobalOutlined />,
+      label: "联网搜索",
+      onClick: () => onChangeAgentMode("web_search"),
+    },
+  ];
 
   return (
-    <div className="chat-input-area">
-      <div className="input-container">
-        <div className="model-selector-container">
-          <label htmlFor="llmProviderSelect">模型:</label>
-          <Select
-            id="llmProviderSelect"
-            value={llmProvider || undefined}
-            style={{ minWidth: 180 }}
-            options={providerOptions}
-            onChange={onChangeProvider}
-            placeholder="选择模型"
-          />
-          <Select
-            value={agentMode}
-            style={{ minWidth: 140 }}
-            options={AGENT_OPTIONS}
-            onChange={onChangeAgentMode}
-          />
-          <Button
-            type={agentMode === "web_search" ? "primary" : "default"}
-            icon={<GlobalOutlined />}
-            onClick={() => onChangeAgentMode("web_search")}
-          >
-            联网
-          </Button>
-        </div>
+    <div className={`chat-input-area ${centered ? "chat-input-centered" : ""}`}>
+      <div className="composer-shell">
+        {centered && (
+          <div className="composer-quick-chips">
+            {QUICK_PROMPTS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className="composer-chip"
+                onClick={() => applyQuickPrompt(item)}
+                disabled={disabled || sending}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {selectedFiles.length > 0 && (
           <div className="selected-files">
@@ -133,19 +172,29 @@ export default function ChatComposer({
           </div>
         )}
 
-        <div className="input-wrapper">
+        <div className="composer-pill">
+          <Dropdown
+            menu={{ items: toolMenuItems }}
+            trigger={["click"]}
+            open={toolsOpen}
+            onOpenChange={setToolsOpen}
+          >
+            <Button type="text" className="composer-plus-btn" icon={<PlusOutlined />} disabled={disabled || sending} />
+          </Dropdown>
+
           <textarea
             ref={textareaRef}
-            className="message-input"
-            placeholder="输入消息..."
+            className="composer-input"
+            placeholder="输入您的问题..."
             rows={1}
             disabled={disabled || sending}
             onKeyDown={handleKeyDown}
             onInput={(e) => {
               e.target.style.height = "auto";
-              e.target.style.height = `${e.target.scrollHeight}px`;
+              e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
             }}
           />
+
           <input
             ref={fileInputRef}
             type="file"
@@ -154,18 +203,14 @@ export default function ChatComposer({
             onChange={handleFileChange}
             accept=".txt,.md,.py,.json,.js,.ts,.html,.css,.xml,.yaml,.yml,.pdf,.docx,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg"
           />
-          <Button
-            className="upload-button"
-            icon={<PaperClipOutlined />}
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled || sending}
-          />
+
           {waitingReply || sending ? (
-            <Button danger icon={<StopOutlined />} onClick={onStop} />
+            <Button type="text" danger className="composer-send-btn" icon={<StopOutlined />} onClick={onStop} />
           ) : (
             <Button
               type="primary"
-              className="send-button"
+              shape="circle"
+              className="composer-send-btn"
               icon={<SendOutlined />}
               onClick={submit}
               disabled={disabled}
@@ -173,9 +218,17 @@ export default function ChatComposer({
           )}
         </div>
 
-        <div className="input-footer">
-          <span className="token-info">{statusText || "就绪"}</span>
-          <span className="input-hint">Enter 发送，Shift+Enter 换行</span>
+        <div className="composer-toolbar">
+          <Select
+            size="small"
+            value={agentMode}
+            variant="borderless"
+            className="composer-mode-select"
+            options={AGENT_OPTIONS}
+            onChange={onChangeAgentMode}
+            popupMatchSelectWidth={140}
+          />
+          <span className="composer-status">{statusText || "Enter 发送 · Shift+Enter 换行"}</span>
         </div>
       </div>
     </div>

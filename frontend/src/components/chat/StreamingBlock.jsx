@@ -1,7 +1,6 @@
 /**
  * 流式 assistant 消息块。
  */
-import { LoadingOutlined, RobotOutlined } from "@ant-design/icons";
 import MessageContent from "./MessageContent";
 
 export default function StreamingBlock({ streamText, waitingReply }) {
@@ -9,15 +8,17 @@ export default function StreamingBlock({ streamText, waitingReply }) {
 
   return (
     <div className="message-row message-assistant streaming-row">
-      <div className="message-avatar">
-        <RobotOutlined />
-      </div>
-      <div className="message-body">
+      <div className="message-body message-body-full">
         {hasText ? (
-          <MessageContent content={streamText} />
+          <div className="streaming-content">
+            <MessageContent content={streamText} />
+            {waitingReply && <span className="streaming-cursor" />}
+          </div>
         ) : waitingReply ? (
-          <div className="loading-dots">
-            <LoadingOutlined spin /> 正在思考...
+          <div className="streaming-thinking">
+            <span className="thinking-dot" />
+            <span className="thinking-dot" />
+            <span className="thinking-dot" />
           </div>
         ) : null}
       </div>

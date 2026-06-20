@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { Spin, message } from "antd";
 import RequireAuth from "../components/RequireAuth";
 import SessionSidebar from "../components/chat/SessionSidebar";
+import ChatTopBar from "../components/chat/ChatTopBar";
 import MessageList from "../components/chat/MessageList";
 import ChatComposer from "../components/chat/ChatComposer";
 import { clearAuth } from "../api/auth";
@@ -26,11 +27,13 @@ import {
 } from "../services/chatApi";
 import { createChatStreamController, streamChatMessage } from "../hooks/useChatStream";
 import { useChatStore } from "../stores/chatStore";
+import "../styles/app-shell.css";
 import "../styles/chat.css";
 
 function ChatPage() {
   const navigate = useNavigate();
   const [bootLoading, setBootLoading] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const streamRef = useRef(null);
 
   const user = useChatStore((s) => s.user);
@@ -216,6 +219,9 @@ function ChatPage() {
     useChatStore.setState({ sending: false, waitingReply: false });
   }
 
+  const showWelcome = isNewChatDraft || !sessionId;
+  const isEmptyView = showWelcome && messages.length === 0 && !streamText;
+
   if (bootLoading) {
     return (
       <div className="chat-loading">
@@ -227,6 +233,8 @@ function ChatPage() {
   return (
     <div className="chat-app">
       <SessionSidebar
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed((v) => !v)}
         user={user}
         sessions={sessions}
         sessionId={sessionId}
@@ -236,28 +244,36 @@ function ChatPage() {
       />
 
       <main className="chat-main">
-        <MessageList
-          messages={messages}
-          streamText={streamText}
-          waitingReply={waitingReply}
-          showWelcome={isNewChatDraft || !sessionId}
-        />
-
-        <ChatComposer
-          disabled={bootLoading}
-          sending={sending}
-          waitingReply={waitingReply}
+        <ChatTopBar
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebar={() => setSidebarCollapsed(false)}
           llmProviders={llmProviders}
           llmProvider={llmProvider}
-          agentMode={agentMode}
-          selectedFiles={selectedFiles}
-          statusText={statusText}
           onChangeProvider={(v) => useChatStore.setState({ llmProvider: v })}
-          onChangeAgentMode={(v) => useChatStore.setState({ agentMode: v })}
-          onChangeFiles={(files) => useChatStore.setState({ selectedFiles: files })}
-          onSend={handleSend}
-          onStop={handleStop}
         />
+
+        <div className={`chat-body ${isEmptyView ? "chat-body-empty" : ""}`}>
+          <MessageList
+            messages={messages}
+            streamText={streamText}
+            waitingReply={waitingReply}
+            showWelcome={showWelcome}
+          />
+
+          <ChatComposer
+            disabled={bootLoading}
+            sending={sending}
+            waitingReply={waitingReply}
+            agentMode={agentMode}
+            selectedFiles={selectedFiles}
+            statusText={statusText}
+            centered={isEmptyView}
+            onChangeAgentMode={(v) => useChatStore.setState({ agentMode: v })}
+            onChangeFiles={(files) => useChatStore.setState({ selectedFiles: files })}
+            onSend={handleSend}
+            onStop={handleStop}
+          />
+        </div>
       </main>
     </div>
   );

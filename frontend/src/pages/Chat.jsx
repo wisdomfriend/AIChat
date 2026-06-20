@@ -14,15 +14,17 @@ import { useNavigate } from "react-router-dom";
 import { Spin, message } from "antd";
 import RequireAuth from "../components/RequireAuth";
 import SessionSidebar from "../components/chat/SessionSidebar";
-import ChatTopBar from "../components/chat/ChatTopBar";
+import ChatSessionMenu from "../components/chat/ChatSessionMenu";
 import MessageList from "../components/chat/MessageList";
 import ChatComposer from "../components/chat/ChatComposer";
 import { clearAuth } from "../api/auth";
 import { apiFetch } from "../api/client";
 import {
+  deleteSession,
   fetchLlmProviders,
   fetchSessionMessages,
   fetchSessions,
+  updateSessionPin,
   uploadChatFiles,
 } from "../services/chatApi";
 import { createChatStreamController, streamChatMessage } from "../hooks/useChatStream";
@@ -219,6 +221,39 @@ function ChatPage() {
     useChatStore.setState({ sending: false, waitingReply: false });
   }
 
+  const currentSession = sessions.find((s) => s.id === sessionId) || null;
+
+  async function handlePinSession(pinned) {
+    if (!sessionId) {
+      return;
+    }
+    try {
+      await updateSessionPin(sessionId, pinned);
+      await reloadSessions();
+      message.success(pinned ? "已固定" : "已解除固定");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "操作失败");
+    }
+  }
+
+  async function handleDeleteSession() {
+    if (!sessionId) {
+      return;
+    }
+    try {
+      await deleteSession(sessionId);
+      const list = await reloadSessions();
+      message.success("已删除");
+      if (list.length > 0) {
+        await loadMessages(list[0].id);
+      } else {
+        handleNewChat();
+      }
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "删除失败");
+    }
+  }
+
   const showWelcome = isNewChatDraft || !sessionId;
   const isEmptyView = showWelcome && messages.length === 0 && !streamText;
 
@@ -244,13 +279,14 @@ function ChatPage() {
       />
 
       <main className="chat-main">
-        <ChatTopBar
-          sidebarCollapsed={sidebarCollapsed}
-          onToggleSidebar={() => setSidebarCollapsed(false)}
-          llmProviders={llmProviders}
-          llmProvider={llmProvider}
-          onChangeProvider={(v) => useChatStore.setState({ llmProvider: v })}
-        />
+        {sessionId && !isNewChatDraft && (
+          <ChatSessionMenu
+            session={currentSession}
+            onPin={() => handlePinSession(true)}
+            onUnpin={() => handlePinSession(false)}
+            onDelete={handleDeleteSession}
+          />
+        )}
 
         <div className={`chat-body ${isEmptyView ? "chat-body-empty" : ""}`}>
           <MessageList
@@ -265,10 +301,13 @@ function ChatPage() {
             sending={sending}
             waitingReply={waitingReply}
             agentMode={agentMode}
+            llmProviders={llmProviders}
+            llmProvider={llmProvider}
             selectedFiles={selectedFiles}
             statusText={statusText}
             centered={isEmptyView}
             onChangeAgentMode={(v) => useChatStore.setState({ agentMode: v })}
+            onChangeProvider={(v) => useChatStore.setState({ llmProvider: v })}
             onChangeFiles={(files) => useChatStore.setState({ selectedFiles: files })}
             onSend={handleSend}
             onStop={handleStop}

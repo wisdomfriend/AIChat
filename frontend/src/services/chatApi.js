@@ -36,6 +36,19 @@ export async function fetchSessionMessages(sessionId) {
   return data.messages || [];
 }
 
+export async function updateSessionPin(sessionId, pinned) {
+  return apiFetch(`/api/sessions/${sessionId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ pinned }),
+  });
+}
+
+export async function deleteSession(sessionId) {
+  return apiFetch(`/api/sessions/${sessionId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function fetchLlmProviders() {
   const data = await apiFetch("/api/llm/providers");
   return {

@@ -15,6 +15,8 @@ import "../../styles/app-shell.css";
 
 const DEFAULT_NAV = [{ key: "chat", label: "智能对话", path: "/chat" }];
 
+const INTERACTIVE_SELECTOR = "button, .ant-btn, .ant-dropdown-trigger, a, input, textarea, select";
+
 export default function CollapsibleSidebar({
   collapsed,
   onToggle,
@@ -65,8 +67,21 @@ export default function CollapsibleSidebar({
     navigate(path);
   }
 
+  function handleAsideClick(e) {
+    if (!collapsed) {
+      return;
+    }
+    if (e.target.closest(INTERACTIVE_SELECTOR)) {
+      return;
+    }
+    onToggle();
+  }
+
   return (
-    <aside className={`app-sidebar ${collapsed ? "app-sidebar-collapsed" : ""}`}>
+    <aside
+      className={`app-sidebar ${collapsed ? "app-sidebar-collapsed" : ""}`}
+      onClick={handleAsideClick}
+    >
       <div className="app-sidebar-top">
         {!collapsed && (
           <div className="app-sidebar-brand">
@@ -79,7 +94,10 @@ export default function CollapsibleSidebar({
             type="text"
             className="app-sidebar-icon-btn"
             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={onToggle}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle();
+            }}
           />
         </Tooltip>
       </div>
@@ -91,8 +109,11 @@ export default function CollapsibleSidebar({
               type={collapsed ? "text" : "default"}
               block={!collapsed}
               icon={<PlusOutlined />}
-              onClick={onNewChat}
-              className={`app-new-chat-btn ${collapsed ? "app-sidebar-icon-btn" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onNewChat();
+              }}
+              className={`app-new-chat-btn ${collapsed ? "app-sidebar-icon-btn app-new-chat-btn-collapsed" : ""}`}
             >
               {!collapsed && "新建对话"}
             </Button>
@@ -121,7 +142,7 @@ export default function CollapsibleSidebar({
 
       <div className="app-sidebar-bottom">
         <Dropdown menu={{ items: userMenuItems }} placement="topLeft" trigger={["click"]}>
-          <button type="button" className="app-sidebar-user-btn">
+          <button type="button" className="app-sidebar-user-btn" onClick={(e) => e.stopPropagation()}>
             <Avatar className="app-user-avatar" size={collapsed ? 32 : 36}>
               {(user?.username || "?")[0]?.toUpperCase()}
             </Avatar>

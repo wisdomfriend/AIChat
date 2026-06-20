@@ -64,6 +64,7 @@ class ChatSession(Base):
     user_id = Column(Integer, nullable=False)
     title = Column(String(200), nullable=False)
     llm_provider = Column(String(50), default='deepseek')
+    is_pinned = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     updated_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'), onupdate=text('CURRENT_TIMESTAMP'))
 

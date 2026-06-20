@@ -2,6 +2,7 @@
  * 流式 assistant 消息块。
  */
 import MessageContent from "./MessageContent";
+import MessageActions from "./MessageActions";
 
 export default function StreamingBlock({ streamText, waitingReply }) {
   const hasText = Boolean(String(streamText || "").trim());
@@ -21,6 +22,7 @@ export default function StreamingBlock({ streamText, waitingReply }) {
             <span className="thinking-dot" />
           </div>
         ) : null}
+        {hasText && !waitingReply && <MessageActions content={streamText} />}
       </div>
     </div>
   );

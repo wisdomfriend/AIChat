@@ -1,10 +1,42 @@
 /**
- * 聊天侧栏：会话搜索 + 历史列表。
+ * 聊天侧栏：搜索 + 固定/最近分组（默认折叠）。
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "antd";
-import { SearchOutlined } from "@ant-design/icons";
+import { PushpinOutlined, RightOutlined, SearchOutlined } from "@ant-design/icons";
 import CollapsibleSidebar from "../layout/CollapsibleSidebar";
+
+function SessionGroup({ title, count, collapsed, onToggle, children, emptyText }) {
+  return (
+    <div className="app-session-group">
+      <button type="button" className="app-session-group-header" onClick={onToggle}>
+        <RightOutlined className={`app-session-group-arrow ${collapsed ? "" : "expanded"}`} />
+        <span className="app-session-group-title">{title}</span>
+        <span className="app-sessions-count">{count}</span>
+      </button>
+      {!collapsed && (
+        <div className="app-sessions-list app-session-group-list">
+          {count === 0 ? <div className="app-sessions-empty">{emptyText}</div> : children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SessionItem({ session, active, onSelect }) {
+  return (
+    <button
+      type="button"
+      className={`app-session-item ${active ? "active" : ""}`}
+      onClick={() => onSelect(session.id)}
+    >
+      <div className="app-session-title">
+        {session.is_pinned && <PushpinOutlined className="app-session-pin" />}
+        <span>{session.title || `会话 ${session.id}`}</span>
+      </div>
+    </button>
+  );
+}
 
 export default function SessionSidebar({
   collapsed,
@@ -17,14 +49,28 @@ export default function SessionSidebar({
   onLogout,
 }) {
   const [keyword, setKeyword] = useState("");
+  const [pinnedCollapsed, setPinnedCollapsed] = useState(true);
+  const [recentCollapsed, setRecentCollapsed] = useState(true);
 
-  const filteredSessions = useMemo(() => {
+  const { pinnedSessions, recentSessions } = useMemo(() => {
     const q = keyword.trim().toLowerCase();
-    if (!q) {
-      return sessions;
-    }
-    return sessions.filter((s) => (s.title || `会话 ${s.id}`).toLowerCase().includes(q));
+    const filtered = q
+      ? sessions.filter((s) => (s.title || `会话 ${s.id}`).toLowerCase().includes(q))
+      : sessions;
+
+    return {
+      pinnedSessions: filtered.filter((s) => Boolean(s.is_pinned)),
+      recentSessions: filtered.filter((s) => !s.is_pinned),
+    };
   }, [sessions, keyword]);
+
+  const hasAny = pinnedSessions.length > 0 || recentSessions.length > 0;
+
+  useEffect(() => {
+    if (recentSessions.length > 0) {
+      setRecentCollapsed(false);
+    }
+  }, [recentSessions.length]);
 
   return (
     <CollapsibleSidebar
@@ -46,28 +92,48 @@ export default function SessionSidebar({
           onChange={(e) => setKeyword(e.target.value)}
           className="app-session-search"
         />
-        <div className="app-sessions-header">
-          <span>对话记录</span>
-          <span className="app-sessions-count">{filteredSessions.length}</span>
-        </div>
-        <div className="app-sessions-list">
-          {filteredSessions.length === 0 ? (
-            <div className="app-sessions-empty">
-              {keyword ? "无匹配对话" : "暂无历史对话"}
-            </div>
-          ) : (
-            filteredSessions.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                className={`app-session-item ${sessionId === s.id ? "active" : ""}`}
-                onClick={() => onSelectSession(s.id)}
+
+        {!hasAny ? (
+          <div className="app-sessions-empty">{keyword ? "无匹配对话" : "暂无历史对话"}</div>
+        ) : (
+          <>
+            {pinnedSessions.length > 0 && (
+              <SessionGroup
+                title="已固定"
+                count={pinnedSessions.length}
+                collapsed={pinnedCollapsed}
+                onToggle={() => setPinnedCollapsed((v) => !v)}
+                emptyText="暂无固定对话"
               >
-                <div className="app-session-title">{s.title || `会话 ${s.id}`}</div>
-              </button>
-            ))
-          )}
-        </div>
+                {pinnedSessions.map((s) => (
+                  <SessionItem
+                    key={s.id}
+                    session={s}
+                    active={sessionId === s.id}
+                    onSelect={onSelectSession}
+                  />
+                ))}
+              </SessionGroup>
+            )}
+
+            <SessionGroup
+              title="最近对话"
+              count={recentSessions.length}
+              collapsed={recentCollapsed}
+              onToggle={() => setRecentCollapsed((v) => !v)}
+              emptyText="暂无对话"
+            >
+              {recentSessions.map((s) => (
+                <SessionItem
+                  key={s.id}
+                  session={s}
+                  active={sessionId === s.id}
+                  onSelect={onSelectSession}
+                />
+              ))}
+            </SessionGroup>
+          </>
+        )}
       </div>
     </CollapsibleSidebar>
   );

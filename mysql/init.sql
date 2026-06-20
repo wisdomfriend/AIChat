@@ -55,11 +55,13 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     user_id INT NOT NULL,
     title VARCHAR(200) NOT NULL,
     llm_provider VARCHAR(50) DEFAULT 'deepseek' COMMENT '使用的LLM提供商（deepseek/vllm等）',
+    is_pinned BOOLEAN DEFAULT FALSE COMMENT '是否固定到侧栏顶部',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_chat_sessions_user_id (user_id),
-    INDEX idx_chat_sessions_updated_at (updated_at)
+    INDEX idx_chat_sessions_updated_at (updated_at),
+    INDEX idx_chat_sessions_pinned (user_id, is_pinned, updated_at)
 );
 
 -- 创建聊天消息表

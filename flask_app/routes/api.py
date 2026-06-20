@@ -12,6 +12,8 @@
 3) 会话管理
    - GET `/api/sessions`  获取当前用户会话列表（需登录）
    - GET `/api/sessions/<session_id>/messages`  获取会话消息（需登录）
+   - PATCH `/api/sessions/<session_id>`  固定/解除固定会话（需登录）
+   - DELETE `/api/sessions/<session_id>`  删除会话（需登录）
 4) 文件管理
    - POST `/api/files`  上传文件（需登录）
    - GET `/api/files`  获取用户文件列表（需登录）
@@ -424,6 +426,46 @@ def get_session_messages(session_id):
     except Exception as e:
         print(f"Get session messages error: {e}")
         return jsonify({'error': '获取消息失败'}), 500
+
+
+@api_bp.route('/sessions/<int:session_id>', methods=['PATCH'])
+def update_session(session_id):
+    """更新会话属性（如固定状态）。"""
+    user = get_current_user()
+    if not user:
+        return jsonify({'error': '未登录'}), 401
+
+    data = request.get_json(silent=True) or {}
+    if 'pinned' not in data:
+        return jsonify({'error': '缺少 pinned 参数'}), 400
+
+    try:
+        chat_service = ChatService()
+        ok = chat_service.set_session_pinned(session_id, user['id'], bool(data['pinned']))
+        if not ok:
+            return jsonify({'error': '会话不存在或无权限'}), 404
+        return jsonify({'success': True, 'is_pinned': bool(data['pinned'])})
+    except Exception as e:
+        print(f"Update session error: {e}")
+        return jsonify({'error': '更新会话失败'}), 500
+
+
+@api_bp.route('/sessions/<int:session_id>', methods=['DELETE'])
+def delete_session_route(session_id):
+    """删除指定会话。"""
+    user = get_current_user()
+    if not user:
+        return jsonify({'error': '未登录'}), 401
+
+    try:
+        chat_service = ChatService()
+        ok = chat_service.delete_session(session_id, user['id'])
+        if not ok:
+            return jsonify({'error': '会话不存在或无权限'}), 404
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Delete session error: {e}")
+        return jsonify({'error': '删除会话失败'}), 500
 
 
 # ==================== 文件相关 API ====================

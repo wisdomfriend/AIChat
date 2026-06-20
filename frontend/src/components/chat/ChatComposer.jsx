@@ -1,9 +1,11 @@
 /**
  * ChatGPT 式圆角输入框 + 快捷 chips。
+ * 模型 / 对话模式收进「+」菜单，当前选项显示在输入框外。
  */
-import { useRef, useState } from "react";
-import { Button, Dropdown, Select, message as antMessage } from "antd";
+import { useMemo, useRef, useState } from "react";
+import { Button, Dropdown, message as antMessage } from "antd";
 import {
+  CheckOutlined,
   EditOutlined,
   FileSearchOutlined,
   GlobalOutlined,
@@ -48,9 +50,12 @@ export default function ChatComposer({
   sending,
   waitingReply,
   agentMode,
+  llmProviders = [],
+  llmProvider,
   selectedFiles,
   statusText,
   onChangeAgentMode,
+  onChangeProvider,
   onChangeFiles,
   onSend,
   onStop,
@@ -59,6 +64,15 @@ export default function ChatComposer({
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   const [toolsOpen, setToolsOpen] = useState(false);
+
+  const providerOptions = useMemo(
+    () =>
+      llmProviders.map((p) => ({
+        value: p.id,
+        label: p.display_name || p.name || p.id,
+      })),
+    [llmProviders]
+  );
 
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -126,16 +140,40 @@ export default function ChatComposer({
 
   const toolMenuItems = [
     {
+      type: "group",
+      label: "对话模式",
+      children: AGENT_OPTIONS.map((opt) => ({
+        key: `mode-${opt.value}`,
+        label: (
+          <span className="composer-menu-option">
+            <span>{opt.label}</span>
+            {agentMode === opt.value && <CheckOutlined className="composer-menu-check" />}
+          </span>
+        ),
+        onClick: () => onChangeAgentMode(opt.value),
+      })),
+    },
+    { type: "divider" },
+    {
+      type: "group",
+      label: "模型",
+      children: providerOptions.map((opt) => ({
+        key: `model-${opt.value}`,
+        label: (
+          <span className="composer-menu-option">
+            <span>{opt.label}</span>
+            {llmProvider === opt.value && <CheckOutlined className="composer-menu-check" />}
+          </span>
+        ),
+        onClick: () => onChangeProvider(opt.value),
+      })),
+    },
+    { type: "divider" },
+    {
       key: "file",
       icon: <PaperClipOutlined />,
       label: "上传文件",
       onClick: () => fileInputRef.current?.click(),
-    },
-    {
-      key: "web",
-      icon: <GlobalOutlined />,
-      label: "联网搜索",
-      onClick: () => onChangeAgentMode("web_search"),
     },
   ];
 
@@ -178,6 +216,7 @@ export default function ChatComposer({
             trigger={["click"]}
             open={toolsOpen}
             onOpenChange={setToolsOpen}
+            overlayClassName="composer-tools-dropdown"
           >
             <Button type="text" className="composer-plus-btn" icon={<PlusOutlined />} disabled={disabled || sending} />
           </Dropdown>
@@ -219,15 +258,6 @@ export default function ChatComposer({
         </div>
 
         <div className="composer-toolbar">
-          <Select
-            size="small"
-            value={agentMode}
-            variant="borderless"
-            className="composer-mode-select"
-            options={AGENT_OPTIONS}
-            onChange={onChangeAgentMode}
-            popupMatchSelectWidth={140}
-          />
           <span className="composer-status">{statusText || "Enter 发送 · Shift+Enter 换行"}</span>
         </div>
       </div>

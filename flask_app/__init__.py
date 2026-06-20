@@ -63,7 +63,14 @@ def create_app(config_name='default'):
         init_db()
     except Exception as e:
         logger.error(f"数据库初始化失败: {str(e)}", exc_info=True)
-        # 不抛出异常，允许应用启动，但会在实际使用时失败
+
+    # 初始化 LangGraph Postgres checkpointer
+    try:
+        from .services.checkpointer_service import init_checkpointer
+        init_checkpointer(config_instance)
+    except Exception as e:
+        logger.error(f"Postgres checkpointer 初始化失败: {str(e)}", exc_info=True)
+        logger.warning("Agent 对话功能可能不可用，请检查 PostgreSQL 配置")
 
     register_error_handlers(app)
     register_cors(app)

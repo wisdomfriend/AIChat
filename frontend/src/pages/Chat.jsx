@@ -48,7 +48,7 @@ function ChatPage() {
   const statusText = useChatStore((s) => s.statusText);
   const llmProviders = useChatStore((s) => s.llmProviders);
   const llmProvider = useChatStore((s) => s.llmProvider);
-  const agentMode = useChatStore((s) => s.agentMode);
+  const streamToolCalls = useChatStore((s) => s.streamToolCalls);
   const selectedFiles = useChatStore((s) => s.selectedFiles);
   const isNewChatDraft = useChatStore((s) => s.isNewChatDraft);
 
@@ -162,6 +162,7 @@ function ChatPage() {
       waitingReply: true,
       streamText: "",
       streamUsage: null,
+      streamToolCalls: [],
       statusText: "正在思考...",
       activeStreamSessionId: state.sessionId,
       selectedFiles: [],
@@ -197,7 +198,6 @@ function ChatPage() {
         sessionId: useChatStore.getState().sessionId,
         fileIds,
         llmProvider: useChatStore.getState().llmProvider,
-        agentMode: useChatStore.getState().agentMode,
         storeApi: useChatStore,
         signal: streamRef.current.signal,
         onReloadSessions: () => {
@@ -292,6 +292,7 @@ function ChatPage() {
           <MessageList
             messages={messages}
             streamText={streamText}
+            streamToolCalls={streamToolCalls}
             waitingReply={waitingReply}
             showWelcome={showWelcome}
           />
@@ -300,13 +301,11 @@ function ChatPage() {
             disabled={bootLoading}
             sending={sending}
             waitingReply={waitingReply}
-            agentMode={agentMode}
             llmProviders={llmProviders}
             llmProvider={llmProvider}
             selectedFiles={selectedFiles}
             statusText={statusText}
             centered={isEmptyView}
-            onChangeAgentMode={(v) => useChatStore.setState({ agentMode: v })}
             onChangeProvider={(v) => useChatStore.setState({ llmProvider: v })}
             onChangeFiles={(files) => useChatStore.setState({ selectedFiles: files })}
             onSend={handleSend}

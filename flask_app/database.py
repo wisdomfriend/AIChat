@@ -127,6 +127,11 @@ def ensure_schema():
             "is_pinned",
             "ALTER TABLE chat_sessions ADD COLUMN is_pinned BOOLEAN DEFAULT FALSE COMMENT '是否固定到侧栏顶部'",
         ),
+        (
+            "chat_messages",
+            "metadata",
+            "ALTER TABLE chat_messages ADD COLUMN metadata TEXT NULL COMMENT 'JSON: tool_calls 等扩展信息'",
+        ),
     ]
 
     with _engine.begin() as conn:

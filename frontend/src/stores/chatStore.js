@@ -1,15 +1,5 @@
 /**
- * 聊天页 Zustand 状态（阶段 3）。
- *
- * 职责总览：
- * 1) 会话
- *    - sessionId / sessions / isNewChatDraft
- * 2) 消息与流式
- *    - messages / streamText / streamUsage / waitingReply / sending
- * 3) 模型与 Agent
- *    - llmProviders / llmProvider / agentMode
- * 4) 文件与状态栏
- *    - selectedFiles / statusText
+ * 聊天页 Zustand 状态。
  */
 import { create } from "zustand";
 
@@ -20,13 +10,13 @@ export const useChatStore = create((set) => ({
   messages: [],
   streamText: "",
   streamUsage: null,
+  streamToolCalls: [],
   sending: false,
   waitingReply: false,
   statusText: "",
   llmProviders: [],
   llmProvider: "",
   defaultProvider: "",
-  agentMode: "normal",
   selectedFiles: [],
   isNewChatDraft: false,
   activeStreamSessionId: null,
@@ -35,6 +25,7 @@ export const useChatStore = create((set) => ({
     set({
       streamText: "",
       streamUsage: null,
+      streamToolCalls: [],
       waitingReply: false,
       sending: false,
       activeStreamSessionId: null,
@@ -46,6 +37,7 @@ export const useChatStore = create((set) => ({
       messages: [],
       streamText: "",
       streamUsage: null,
+      streamToolCalls: [],
       sending: false,
       waitingReply: false,
       statusText: "",

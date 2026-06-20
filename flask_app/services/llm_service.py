@@ -2,7 +2,7 @@
 
 职责总览：
 1) 实例管理
-   - `get_llm()`  获取/缓存 ChatOpenAI 实例
+   - `get_llm()`  获取/缓存 BaseChatOpenAI 实例
    - `get_available_providers()`  返回可用提供商列表
 2) Token 计算
    - `count_tokens()`  估算消息列表 Token 数
@@ -16,8 +16,9 @@ import threading
 from typing import AsyncGenerator, Dict, List, Optional
 
 import tiktoken
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+from langchain_openai.chat_models.base import BaseChatOpenAI
 
 
 class LLMService:
@@ -51,19 +52,19 @@ class LLMService:
         self._llm_instances = {}  # 全局缓存模型实例（跨请求共享）
         self._initialized = True
     
-    def get_llm(self, provider_id: str):
-        """获取指定提供商的 ChatOpenAI 实例（带缓存）。
+    def get_llm(self, provider_id: str) -> BaseChatModel:
+        """获取指定提供商的 BaseChatOpenAI 实例（带缓存）。
 
         用法:
         - 调用方: 聊天流式生成、Agent 执行
         - 参数: `provider_id` — 如 `deepseek`
-        - 返回值: LangChain `ChatOpenAI` 实例
+        - 返回值: LangChain `BaseChatOpenAI` 实例
         """
         if provider_id not in self._llm_instances:
             self._llm_instances[provider_id] = self._create_llm(provider_id)
         return self._llm_instances[provider_id]
     
-    def _create_llm(self, provider_id: str) -> ChatOpenAI:
+    def _create_llm(self, provider_id: str) -> BaseChatOpenAI:
         """
         创建模型实例
         
@@ -71,7 +72,7 @@ class LLMService:
             provider_id: 模型提供商ID
             
         Returns:
-            ChatOpenAI 实例
+            BaseChatOpenAI 实例
         """
         if provider_id not in self.config.LLM_PROVIDERS:
             raise ValueError(f"不支持的模型提供商: {provider_id}")
@@ -83,15 +84,18 @@ class LLMService:
         # 获取 API Key
         api_key = self._get_api_key(provider_id)
         
-        # 创建 LangChain ChatOpenAI 实例
-        llm = ChatOpenAI(
+        # OpenAI 兼容 API（DeepSeek 等）使用 BaseChatOpenAI，而非官方 OpenAI 专用的 ChatOpenAI
+        # profile.max_input_tokens 供 SummarizationMiddleware 的 fraction 触发使用
+        max_context = provider_config.get('max_context_length', 32768)
+        llm = BaseChatOpenAI(
             base_url=provider_config['base_url'],
             api_key=api_key,
             model=provider_config['model_name'],
             # temperature=0.7,  # 这里不设置温度,使用后端用户提供的默认值
             streaming=True,
             timeout=600,  # 设置超时时间为 600 秒
-            max_retries=2
+            max_retries=2,
+            profile={"max_input_tokens": max_context},
         )
         
         return llm

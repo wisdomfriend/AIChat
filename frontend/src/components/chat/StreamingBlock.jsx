@@ -3,13 +3,16 @@
  */
 import MessageContent from "./MessageContent";
 import MessageActions from "./MessageActions";
+import ToolCallList from "./ToolCallList";
 
-export default function StreamingBlock({ streamText, waitingReply }) {
+export default function StreamingBlock({ streamText, streamToolCalls, waitingReply }) {
   const hasText = Boolean(String(streamText || "").trim());
+  const hasTools = Boolean(streamToolCalls?.length);
 
   return (
     <div className="message-row message-assistant streaming-row">
       <div className="message-body message-body-full">
+        {hasTools && <ToolCallList tools={streamToolCalls} />}
         {hasText ? (
           <div className="streaming-content">
             <MessageContent content={streamText} />

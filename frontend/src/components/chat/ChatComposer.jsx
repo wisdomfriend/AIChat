@@ -1,6 +1,5 @@
 /**
  * ChatGPT 式圆角输入框 + 快捷 chips。
- * 模型 / 对话模式收进「+」菜单，当前选项显示在输入框外。
  */
 import { useMemo, useRef, useState } from "react";
 import { Button, Dropdown, message as antMessage } from "antd";
@@ -15,13 +14,6 @@ import {
   StopOutlined,
 } from "@ant-design/icons";
 import { formatBytes, getTextSizeInBytes, isImageFile, MAX_MESSAGE_BYTES } from "../../services/chatApi";
-
-const AGENT_OPTIONS = [
-  { value: "normal", label: "普通聊天" },
-  { value: "web_search", label: "联网搜索" },
-  { value: "react", label: "推理与行动" },
-  { value: "plan_execute", label: "规划与执行" },
-];
 
 const QUICK_PROMPTS = [
   {
@@ -41,7 +33,6 @@ const QUICK_PROMPTS = [
     label: "联网查询",
     icon: <GlobalOutlined />,
     text: "请搜索并整理以下问题的最新信息：",
-    agentMode: "web_search",
   },
 ];
 
@@ -49,12 +40,10 @@ export default function ChatComposer({
   disabled,
   sending,
   waitingReply,
-  agentMode,
   llmProviders = [],
   llmProvider,
   selectedFiles,
   statusText,
-  onChangeAgentMode,
   onChangeProvider,
   onChangeFiles,
   onSend,
@@ -101,9 +90,6 @@ export default function ChatComposer({
   }
 
   function applyQuickPrompt(item) {
-    if (item.agentMode) {
-      onChangeAgentMode(item.agentMode);
-    }
     if (textareaRef.current) {
       textareaRef.current.value = item.text;
       textareaRef.current.focus();
@@ -139,21 +125,6 @@ export default function ChatComposer({
   }
 
   const toolMenuItems = [
-    {
-      type: "group",
-      label: "对话模式",
-      children: AGENT_OPTIONS.map((opt) => ({
-        key: `mode-${opt.value}`,
-        label: (
-          <span className="composer-menu-option">
-            <span>{opt.label}</span>
-            {agentMode === opt.value && <CheckOutlined className="composer-menu-check" />}
-          </span>
-        ),
-        onClick: () => onChangeAgentMode(opt.value),
-      })),
-    },
-    { type: "divider" },
     {
       type: "group",
       label: "模型",
@@ -224,7 +195,7 @@ export default function ChatComposer({
           <textarea
             ref={textareaRef}
             className="composer-input"
-            placeholder="输入您的问题..."
+            placeholder="输入您的问题"
             rows={1}
             disabled={disabled || sending}
             onKeyDown={handleKeyDown}

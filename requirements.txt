@@ -39,13 +39,15 @@ langchain==1.2.0
 langchain-core==1.2.11
 langgraph==1.0.5
 langgraph-prebuilt==1.0.5
-langgraph-checkpoint==3.0.1
+# LangChain Agent (create_agent + Postgres checkpointer)
+langgraph-checkpoint>=2.1.0,<3.0.0
+langgraph-checkpoint-postgres==2.0.23
 langgraph-sdk==0.3.1
 langchain-community==0.4.1
 langchain-text-splitters==1.1.0
 langchain-openai==1.1.6
-langchain-experimental==0.4.1  # For Plan-and-Execute Agent
 langchain-tavily==0.2.18
+psycopg[binary,pool]>=3.0
 tiktoken>=0.5.0
 openai>=1.0.0
 pytz>=2024.1  # For timezone support

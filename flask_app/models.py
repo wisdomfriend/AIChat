@@ -78,6 +78,7 @@ class ChatMessage(Base):
     role = Column(String(20), nullable=False)
     content = Column(Text, nullable=False)
     file_ids = Column(String(500))
+    metadata_json = Column('metadata', Text)
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
 
 

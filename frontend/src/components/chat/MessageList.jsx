@@ -5,13 +5,15 @@ import { useEffect, useRef } from "react";
 import MessageItem from "./MessageItem";
 import StreamingBlock from "./StreamingBlock";
 
-export default function MessageList({ messages, streamText, waitingReply, showWelcome }) {
+export default function MessageList({ messages, streamText, streamToolCalls, waitingReply, showWelcome }) {
   const bottomRef = useRef(null);
-  const isEmpty = messages.length === 0 && !streamText;
+  const hasStreamingTools = (streamToolCalls?.length ?? 0) > 0;
+  const showStreaming = waitingReply || Boolean(String(streamText || "").trim()) || hasStreamingTools;
+  const isEmpty = messages.length === 0 && !streamText && !hasStreamingTools;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamText, waitingReply]);
+  }, [messages, streamText, streamToolCalls, waitingReply]);
 
   return (
     <div className={`chat-messages ${isEmpty && showWelcome ? "chat-messages-empty" : ""}`}>
@@ -27,8 +29,12 @@ export default function MessageList({ messages, streamText, waitingReply, showWe
             <MessageItem key={msg.id} message={msg} />
           ))}
 
-          {(waitingReply || streamText) && (
-            <StreamingBlock streamText={streamText} waitingReply={waitingReply} />
+          {showStreaming && (
+            <StreamingBlock
+              streamText={streamText}
+              streamToolCalls={streamToolCalls}
+              waitingReply={waitingReply}
+            />
           )}
         </div>
       )}

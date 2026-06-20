@@ -44,7 +44,7 @@ export default function MessageItem({ message }) {
             ))}
           </div>
         )}
-        <MessageContent content={message.content} />
+        <MessageContent content={message.content} metadata={message.metadata} />
         {message.usage && (
           <div className="message-usage">
             tokens: {message.usage.total_tokens ?? message.usage.total ?? "-"}

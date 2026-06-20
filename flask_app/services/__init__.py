@@ -1,23 +1,9 @@
-"""业务逻辑 Service 层统一导出。
-
-Service 总览（按调用关系）：
-1) 认证与统计
-   - `AuthService`        登录与注册（用户名密码校验）
-   - `auth_token` 模块    Bearer Token 签发、验签与 API 装饰器
-   - `StatsService`       Token 用量统计
-2) 聊天核心
-   - `ChatService`              会话管理与 SSE 流式聊天
-   - `LLMService`               多 LLM 提供商管理（单例）
-   - `LangChainMemoryManager`   上下文压缩与历史消息
-   - `MySQLChatMessageHistory`  LangChain 消息持久化
-3) 文件
-   - `FileService`  文件上传、文本提取与上下文拼接
-"""
+"""业务逻辑 Service 层统一导出。"""
 from .auth_service import AuthService
 from .auth_token import admin_required, create_user_token, login_required, verify_user_token
+from .chat_persistence import ChatPersistenceService
 from .chat_service import ChatService
 from .file_service import FileService
-from .langchain_memory_manager import LangChainMemoryManager
 from .llm_service import LLMService
 from .memory_store import MySQLChatMessageHistory
 from .stats_service import StatsService
@@ -29,9 +15,9 @@ __all__ = [
     'login_required',
     'verify_user_token',
     'ChatService',
+    'ChatPersistenceService',
     'StatsService',
     'FileService',
-    'LangChainMemoryManager',
     'MySQLChatMessageHistory',
     'LLMService',
 ]

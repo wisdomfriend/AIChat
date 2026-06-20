@@ -2,19 +2,25 @@
  * SSE 事件分发 → Zustand store。
  */
 
-function appendAgentBlock(streamText, className, content, prefix = "") {
-  const block = `<div class="${className}">${prefix}${content || ""}</div>`;
-  return `${streamText || ""}${block}`;
+const TOOL_LABELS = {
+  web_search: "联网搜索",
+  get_time_info: "查询时间",
+};
+
+function toolLabel(name) {
+  return TOOL_LABELS[name] || name || "工具";
 }
 
 function buildAssistantMessage(state, usageOverride) {
   const usage = usageOverride ?? state.streamUsage;
+  const toolCalls = state.streamToolCalls?.length ? state.streamToolCalls : undefined;
   return {
     id: `assistant-${Date.now()}`,
     role: "assistant",
     content: state.streamText || "",
     created_at: new Date().toISOString(),
     usage: usage || undefined,
+    metadata: toolCalls ? { tool_calls: toolCalls } : undefined,
   };
 }
 
@@ -24,8 +30,6 @@ function usageStatusText(usage) {
 }
 
 /**
- * 将单条 SSE 事件应用到 store。
- *
  * @returns {{ error: string|null, reloadSessions: boolean, finalized: boolean }}
  */
 export function applyChatEvent(data, storeApi) {
@@ -58,39 +62,38 @@ export function applyChatEvent(data, storeApi) {
       patch.streamUsage = data.usage;
       break;
 
-    case "search_start":
-      patch.statusText = data.message || "正在搜索...";
+    case "tool_start": {
+      const next = [...(state.streamToolCalls || [])];
+      next.push({
+        name: data.tool,
+        label: toolLabel(data.tool),
+        status: "running",
+        args: data.args || {},
+      });
+      patch.streamToolCalls = next;
+      patch.statusText = `${toolLabel(data.tool)}…`;
       break;
-    case "search_complete":
-      patch.statusText = data.message || "搜索完成";
-      break;
-    case "search_error":
-      patch.statusText = data.message || "搜索失败";
-      break;
+    }
 
-    case "agent_think":
-      patch.streamText = appendAgentBlock(state.streamText, "agent-think", data.content);
-      patch.statusText = "正在思考...";
+    case "tool_end": {
+      const next = [...(state.streamToolCalls || [])];
+      for (let i = next.length - 1; i >= 0; i -= 1) {
+        if (next[i].name === data.tool && next[i].status === "running") {
+          next[i] = {
+            ...next[i],
+            status: "done",
+            result_preview: data.result_preview || "",
+          };
+          break;
+        }
+      }
+      patch.streamToolCalls = next;
+      patch.statusText = `${toolLabel(data.tool)} 完成`;
       break;
-    case "agent_action":
-      patch.streamText = appendAgentBlock(state.streamText, "agent-action", data.content);
-      patch.statusText = "正在执行...";
-      break;
-    case "agent_observation":
-      patch.streamText = appendAgentBlock(state.streamText, "agent-observation", data.content);
-      patch.statusText = "观察结果...";
-      break;
-    case "agent_plan":
-      patch.streamText = appendAgentBlock(state.streamText, "agent-plan", data.content, "规划：");
-      patch.statusText = "规划完成，正在执行...";
-      break;
-    case "agent_plan_step":
-      patch.streamText = appendAgentBlock(state.streamText, "agent-plan-step", data.content);
-      patch.statusText = `规划步骤 ${data.step_num || ""}...`;
-      break;
-    case "agent_execute_step":
-      patch.streamText = appendAgentBlock(state.streamText, "agent-execute-step", data.content);
-      patch.statusText = `执行步骤 ${data.step_num || ""}...`;
+    }
+
+    case "tool_status":
+      patch.statusText = data.message || patch.statusText || "正在执行…";
       break;
 
     case "error": {
@@ -108,17 +111,28 @@ export function applyChatEvent(data, storeApi) {
       ];
       patch.streamText = "";
       patch.streamUsage = null;
+      patch.streamToolCalls = [];
       effects.finalized = true;
       break;
     }
 
     case "done": {
       const usage = state.streamUsage || data.usage;
-      if (String(state.streamText || "").trim() || usage) {
-        patch.messages = [...state.messages, buildAssistantMessage(state, usage)];
+      const toolCalls = data.tool_calls?.length ? data.tool_calls : state.streamToolCalls;
+      if (toolCalls?.length) {
+        patch.streamToolCalls = toolCalls.map((t) => ({
+          ...t,
+          label: toolLabel(t.name),
+          status: "done",
+        }));
+      }
+      if (String(state.streamText || "").trim() || usage || toolCalls?.length) {
+        const merged = { ...state, ...patch, streamUsage: usage, streamToolCalls: patch.streamToolCalls ?? state.streamToolCalls };
+        patch.messages = [...state.messages, buildAssistantMessage(merged, usage)];
       }
       patch.streamText = "";
       patch.streamUsage = null;
+      patch.streamToolCalls = [];
       patch.statusText = usageStatusText(usage);
       effects.finalized = true;
       break;
@@ -135,15 +149,16 @@ export function applyChatEvent(data, storeApi) {
   return effects;
 }
 
-/** 流异常结束或未收到 done 时，将 streamText 落盘为 assistant 消息。 */
 export function finalizeStreamIfNeeded(storeApi) {
   const state = storeApi.getState();
   const text = String(state.streamText || "").trim();
+  const tools = state.streamToolCalls || [];
 
-  if (!text) {
+  if (!text && !tools.length) {
     storeApi.setState({
       streamText: "",
       streamUsage: null,
+      streamToolCalls: [],
     });
     return;
   }
@@ -152,6 +167,9 @@ export function finalizeStreamIfNeeded(storeApi) {
     messages: [...state.messages, buildAssistantMessage(state)],
     streamText: "",
     streamUsage: null,
+    streamToolCalls: [],
     statusText: usageStatusText(state.streamUsage),
   });
 }
+
+export { toolLabel };

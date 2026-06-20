@@ -96,10 +96,17 @@ class Config:
         # Flask配置
         self.FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
         
-        # LangChain 上下文压缩配置
-        self.LANGCHAIN_COMPRESSION_ENABLED = os.environ.get('LANGCHAIN_COMPRESSION_ENABLED', 'true').lower() == 'true'  # 是否启用压缩
-        self.LANGCHAIN_COMPRESSION_THRESHOLD = float(os.environ.get('LANGCHAIN_COMPRESSION_THRESHOLD', '0.8'))  # 压缩触发阈值（80%）
-        self.LANGCHAIN_COMPRESSION_KEEP_ROUNDS = int(os.environ.get('LANGCHAIN_COMPRESSION_KEEP_ROUNDS', '10'))  # 保留最近N轮对话
+        # PostgreSQL（LangGraph checkpointer）
+        self.POSTGRES_HOST = os.environ.get('POSTGRES_HOST', 'postgres')
+        self.POSTGRES_PORT = int(os.environ.get('POSTGRES_PORT', '5432'))
+        self.POSTGRES_USER = os.environ.get('POSTGRES_USER', 'langgraph')
+        self.POSTGRES_PASSWORD = os.environ.get('POSTGRES_PASSWORD', 'langgraph')
+        self.POSTGRES_DB = os.environ.get('POSTGRES_DB', 'langgraph')
+
+        # Agent 配置（SummarizationMiddleware）
+        self.AGENT_SUMMARY_TRIGGER_FRACTION = float(os.environ.get('AGENT_SUMMARY_TRIGGER_FRACTION', '0.8'))
+        self.AGENT_SUMMARY_KEEP_MESSAGES = int(os.environ.get('AGENT_SUMMARY_KEEP_MESSAGES', '20'))
+        self.AGENT_RECURSION_LIMIT = int(os.environ.get('AGENT_RECURSION_LIMIT', '25'))
         
         # LLM 模型配置
         self._init_llm_providers()
@@ -156,6 +163,14 @@ class Config:
         - 返回值: `mysql+pymysql://user:pass@host:port/db`
         """
         return f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
+
+    @property
+    def POSTGRES_URI(self):
+        """构建 LangGraph Postgres checkpointer 连接 URI。"""
+        return (
+            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
 
 
 class DevelopmentConfig(Config):

@@ -1,5 +1,5 @@
 /**
- * POST SSE 聊天流（@microsoft/fetch-event-source）。
+ * POST SSE 聊天流。
  */
 import { fetchEventSource } from "@microsoft/fetch-event-source";
 import { getToken } from "../api/auth";
@@ -10,25 +10,11 @@ export function createChatStreamController() {
   return new AbortController();
 }
 
-/**
- * 发送聊天消息并消费 SSE 流。
- *
- * @param {object} params
- * @param {string} params.message
- * @param {number|null} params.sessionId
- * @param {number[]} params.fileIds
- * @param {string} params.llmProvider
- * @param {string} params.agentMode
- * @param {object} params.storeApi - useChatStore 实例（含 getState/setState）
- * @param {AbortSignal} params.signal
- * @param {() => void} [params.onReloadSessions]
- */
 export async function streamChatMessage({
   message,
   sessionId,
   fileIds,
   llmProvider,
-  agentMode,
   storeApi,
   signal,
   onReloadSessions,
@@ -42,7 +28,6 @@ export async function streamChatMessage({
     session_id: sessionId || undefined,
     file_ids: fileIds || [],
     llm_provider: llmProvider || undefined,
-    agent_mode: agentMode || "normal",
   };
 
   try {
@@ -68,7 +53,7 @@ export async function streamChatMessage({
             messageText = parsed.message || messageText;
           }
         } catch {
-          // ignore parse error
+          // ignore
         }
         throw new Error(messageText);
       },

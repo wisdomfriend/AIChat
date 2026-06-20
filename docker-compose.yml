@@ -45,10 +45,14 @@ services:
       - MYSQL_HOST=mysql
       - MYSQL_PORT=3306
       - REDIS_HOST=redis
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
     env_file:
       - .env
     depends_on:
       mysql:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
       redis:
         condition: service_started
@@ -84,6 +88,26 @@ services:
       retries: 10
       start_period: 10s
 
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: postgres-langgraph
+    environment:
+      POSTGRES_DB: langgraph
+      POSTGRES_USER: langgraph
+      POSTGRES_PASSWORD: langgraph
+      TZ: Asia/Shanghai
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - nginx-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langgraph -d langgraph"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
   redis:
     image: redis:7-alpine
     container_name: redis-cache
@@ -101,6 +125,7 @@ services:
 
 volumes:
   mysql_data:
+  pg_data:
   redis_data:
   frontend_dist:
 

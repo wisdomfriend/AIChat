@@ -76,7 +76,7 @@ def api_chat():
     用法:
     - 方法/路径: `POST /api/chat`
     - 认证: Bearer Token
-    - 请求体: `{ "message": "...", "session_id": 1, "file_ids": [], "llm_provider": "...", "agent_mode": "normal" }`
+    - 请求体: `{ "message": "...", "session_id": 1, "file_ids": [], "llm_provider": "..." }`
     - 成功响应: `text/event-stream`，事件 `{ "type": "chunk"|"end"|"error", ... }`
     - 失败响应: 401 未登录；400 参数错误；429 访问过于频繁
     ---
@@ -119,11 +119,6 @@ def api_chat():
               type: string
               description: 模型提供商ID（可选）
               example: "deepseek"
-            agent_mode:
-              type: string
-              description: Agent 模式，可选值：normal（普通聊天）、web_search（联网搜索）、react（推理与行动）、plan_execute（规划与执行）
-              default: "normal"
-              example: "react"
     responses:
       200:
         description: 流式响应成功
@@ -175,7 +170,6 @@ def api_chat():
         session_id = data.get('session_id')  # 会话ID，如果为None则创建新会话
         file_ids = data.get('file_ids', [])  # 附加的文件ID列表
         llm_provider = data.get('llm_provider')  # 模型提供商ID（可选）
-        agent_mode = data.get('agent_mode', 'normal')  # Agent 模式
         
         if not message:
             return Response(
@@ -205,7 +199,6 @@ def api_chat():
                     message,
                     file_ids,
                     llm_provider,
-                    agent_mode
                 ):
                     yield chunk
             except Exception as e:

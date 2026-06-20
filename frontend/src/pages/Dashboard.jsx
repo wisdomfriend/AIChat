@@ -34,7 +34,7 @@ function StatCards({ stats }) {
               value={item.value}
               suffix="tokens"
               prefix={item.icon}
-              valueStyle={{ color: "#0050b3" }}
+              valueStyle={{ color: "#1677ff" }}
             />
           </Card>
         </Col>

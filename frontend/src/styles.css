@@ -58,19 +58,9 @@ body {
   margin-bottom: 28px;
 }
 
-.auth-brand-mark {
-  display: inline-flex;
-  width: 52px;
-  height: 52px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #4096ff 0%, #1677ff 100%);
-  color: #fff;
-  font-weight: 700;
-  font-size: 18px;
-  margin-bottom: 14px;
-  box-shadow: 0 6px 16px rgba(22, 119, 255, 0.25);
+.auth-brand-logo {
+  display: block;
+  margin: 0 auto 14px;
 }
 
 .auth-brand-title {

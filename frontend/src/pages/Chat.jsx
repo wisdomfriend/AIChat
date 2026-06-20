@@ -90,13 +90,10 @@ function ChatPage() {
           defaultProvider: providerData.defaultProvider,
           llmProvider: providerData.defaultProvider,
           sessions: sessionList,
-          isNewChatDraft: sessionList.length === 0,
+          sessionId: null,
+          messages: [],
+          isNewChatDraft: true,
         });
-
-        const withMessages = sessionList.find((s) => (s.message_count || 0) > 0) || sessionList[0];
-        if (withMessages) {
-          await loadMessages(withMessages.id);
-        }
       } catch (error) {
         if (!cancelled) {
           message.error(error instanceof Error ? error.message : "加载失败");

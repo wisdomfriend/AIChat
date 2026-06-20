@@ -1,3 +1,4 @@
+import AppLogo from "../components/AppLogo";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Button, Card, Form, Input, Typography, message } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
@@ -39,7 +40,7 @@ export default function Register() {
     <div className="page-shell">
       <Card className="hero-card auth-card" bordered={false}>
         <div className="auth-brand">
-          <div className="auth-brand-mark">AI</div>
+          <AppLogo size={52} className="auth-brand-logo" />
           <div className="auth-brand-title">账号注册</div>
           <div className="auth-brand-sub">创建账号后即可使用智能对话服务</div>
         </div>

@@ -1,6 +1,7 @@
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Button, Card, Form, Input, Typography, message } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import AppLogo from "../components/AppLogo";
 import { apiFetch } from "../api/client";
 import { isAuthenticated, setAuth } from "../api/auth";
 
@@ -39,7 +40,7 @@ export default function Login() {
     <div className="page-shell">
       <Card className="hero-card auth-card" bordered={false}>
         <div className="auth-brand">
-          <div className="auth-brand-mark">AI</div>
+          <AppLogo size={52} className="auth-brand-logo" />
           <div className="auth-brand-title">智能助手</div>
         </div>
 

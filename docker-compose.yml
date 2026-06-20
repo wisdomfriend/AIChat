@@ -3,39 +3,24 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.build
-    container_name: frontend-build
-    volumes:
-      - frontend_dist:/dist
-    restart: "no"
-    networks:
-      - nginx-network
-
-  nginx:
-    image: nginx:alpine
-    container_name: nginx-shop
+      dockerfile: Dockerfile
+    container_name: chatai-frontend
     ports:
       - "5190:80"
     environment:
       - TZ=Asia/Shanghai
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - frontend_dist:/usr/share/nginx/html:ro
-      - ./logs:/var/log/nginx
-    restart: unless-stopped
     depends_on:
-      frontend:
-        condition: service_completed_successfully
-      flask-app:
+      backend:
         condition: service_healthy
+    restart: unless-stopped
     networks:
       - nginx-network
 
-  flask-app:
+  backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: flask-app
+    container_name: chatai-backend
     volumes:
       - ./:/app
       - ./uploads:/app/uploads
@@ -48,7 +33,7 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
     env_file:
-      - backend/.env
+      - backend/.env.product
     depends_on:
       mysql:
         condition: service_healthy
@@ -68,7 +53,7 @@ services:
 
   mysql:
     image: mysql:8.0
-    container_name: mysql-db
+    container_name: chatai-mysql
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword-new123
       MYSQL_DATABASE: nginx_shop
@@ -90,7 +75,7 @@ services:
 
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: postgres-langgraph
+    container_name: chatai-postgres
     environment:
       POSTGRES_DB: langgraph
       POSTGRES_USER: langgraph
@@ -110,7 +95,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: redis-cache
+    container_name: chatai-redis
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -127,7 +112,6 @@ volumes:
   mysql_data:
   pg_data:
   redis_data:
-  frontend_dist:
 
 networks:
   nginx-network:

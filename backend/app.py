@@ -15,7 +15,7 @@ from flask import Flask
 from flasgger import Swagger
 import redis
 
-from backend.config import APP_CONFIG_KEY, configure_app
+from backend.config import APP_CONFIG_KEY, DEVELOP, configure_app
 from backend.db import init_db
 from backend.middleware import register_cors, register_error_handlers, register_request_logging
 from backend.routes import register_routes
@@ -23,11 +23,11 @@ from backend.routes import register_routes
 logger = logging.getLogger(__name__)
 
 
-def create_app(config_name="default"):
+def create_app(*, mode: str = DEVELOP):
     """创建并配置 Flask 应用实例。"""
     app = Flask(__name__)
 
-    configure_app(app, config_name=config_name)
+    configure_app(app, mode=mode)
     config_instance = app.extensions[APP_CONFIG_KEY]
 
     try:

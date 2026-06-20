@@ -55,9 +55,9 @@ __all__ = [
 ]
 
 
-def configure_app(app: Flask, *, config_name: str = "default") -> Config:
+def configure_app(app: Flask, *, mode: str = DEVELOP) -> Config:
     """将配置对象挂载到 Flask 应用（环境变量需在入口脚本中预先 load_dotenv）。"""
-    config_instance = create_config(config_name)
+    config_instance = create_config(mode=mode)
     app.extensions[APP_CONFIG_KEY] = config_instance
     app.config.from_object(config_instance)
     return config_instance

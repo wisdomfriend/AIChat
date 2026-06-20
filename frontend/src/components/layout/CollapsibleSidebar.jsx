@@ -11,6 +11,7 @@ import {
   PlusOutlined,
   SettingOutlined,
 } from "@ant-design/icons";
+import AppLogo from "../AppLogo";
 import "../../styles/app-shell.css";
 
 const DEFAULT_NAV = [{ key: "chat", label: "智能对话", path: "/chat" }];
@@ -26,6 +27,7 @@ export default function CollapsibleSidebar({
   onNewChat,
   showNewChat = false,
   children,
+  collapsedContent,
 }) {
   const navigate = useNavigate();
 
@@ -83,12 +85,10 @@ export default function CollapsibleSidebar({
       onClick={handleAsideClick}
     >
       <div className="app-sidebar-top">
-        {!collapsed && (
-          <div className="app-sidebar-brand">
-            <div className="app-sidebar-mark">AI</div>
-            <div className="app-sidebar-brand-title">智能助手</div>
-          </div>
-        )}
+        <div className={`app-sidebar-brand ${collapsed ? "app-sidebar-brand-collapsed" : ""}`}>
+          <AppLogo size={collapsed ? 28 : 32} className="app-sidebar-logo" />
+          {!collapsed && <div className="app-sidebar-brand-title">智能助手</div>}
+        </div>
         <Tooltip title={collapsed ? "展开侧栏" : "收起侧栏"} placement="right">
           <Button
             type="text"
@@ -136,9 +136,11 @@ export default function CollapsibleSidebar({
         </div>
       )}
 
-      {!collapsed && children}
+      {!collapsed && children && <div className="app-sidebar-body">{children}</div>}
 
-      {(!children || collapsed) && <div className="app-sidebar-spacer" />}
+      {collapsed && collapsedContent}
+
+      {(collapsed || !children) && <div className="app-sidebar-spacer" />}
 
       <div className="app-sidebar-bottom">
         <Dropdown menu={{ items: userMenuItems }} placement="topLeft" trigger={["click"]}>

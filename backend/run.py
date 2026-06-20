@@ -1,10 +1,18 @@
-"""Flask 应用启动脚本 - 用于开发环境和 PyCharm 调试。"""
-import logging
-import os
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""开发环境启动入口。
+
+用法:
+- 命令: `python backend/run.py`（在项目根目录执行）
+- 行为: 加载 `backend/.env.develop` → `create_app(mode=DEVELOP)` → 启动内置开发服务器
+"""
 import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+from backend import create_app
+from backend.config import DEVELOP
 
 BACKEND_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BACKEND_DIR.parent
@@ -12,25 +20,9 @@ PROJECT_ROOT = BACKEND_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+load_dotenv(BACKEND_DIR / ".env.develop")
 
-env_path = load_dotenv(BACKEND_DIR / ".env")
-if env_path:
-    logger.info("已加载 .env 文件: %s", env_path)
-else:
-    logger.warning("未找到 backend/.env 文件，将使用环境变量或默认配置")
-
-config_name = os.environ.get("FLASK_ENV", "development")
-logger.info("使用配置: %s", config_name)
-
-from backend import create_app
-
-app = create_app(config_name)
+app = create_app(mode=DEVELOP)
 
 if __name__ == "__main__":
-    debug_mode = app.config.get("DEBUG", True)
-    app.run(host="0.0.0.0", port=5000, debug=debug_mode, use_reloader=False)
+    app.run(host="0.0.0.0", port=5000, debug="1", use_reloader=False)

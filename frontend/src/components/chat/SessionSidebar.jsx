@@ -1,14 +1,19 @@
 /**
- * 聊天侧栏：搜索 + 固定/最近分组（默认折叠）。
+ * 聊天侧栏：搜索 + 固定/最近分组；收起时显示图标栏（参考 ChatGPT）。
  */
-import { useEffect, useMemo, useState } from "react";
-import { Input } from "antd";
-import { PushpinOutlined, RightOutlined, SearchOutlined } from "@ant-design/icons";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Input, Tooltip } from "antd";
+import {
+  CommentOutlined,
+  PushpinOutlined,
+  RightOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import CollapsibleSidebar from "../layout/CollapsibleSidebar";
 
-function SessionGroup({ title, count, collapsed, onToggle, children, emptyText }) {
+function SessionGroup({ title, count, collapsed, onToggle, children, emptyText, fill = false }) {
   return (
-    <div className="app-session-group">
+    <div className={`app-session-group ${fill ? "app-session-group-fill" : ""}`}>
       <button type="button" className="app-session-group-header" onClick={onToggle}>
         <RightOutlined className={`app-session-group-arrow ${collapsed ? "" : "expanded"}`} />
         <span className="app-session-group-title">{title}</span>
@@ -50,7 +55,9 @@ export default function SessionSidebar({
 }) {
   const [keyword, setKeyword] = useState("");
   const [pinnedCollapsed, setPinnedCollapsed] = useState(true);
-  const [recentCollapsed, setRecentCollapsed] = useState(true);
+  const [recentCollapsed, setRecentCollapsed] = useState(false);
+  const [pendingSearchFocus, setPendingSearchFocus] = useState(false);
+  const searchRef = useRef(null);
 
   const { pinnedSessions, recentSessions } = useMemo(() => {
     const q = keyword.trim().toLowerCase();
@@ -72,6 +79,80 @@ export default function SessionSidebar({
     }
   }, [recentSessions.length]);
 
+  useEffect(() => {
+    if (!collapsed && pendingSearchFocus) {
+      searchRef.current?.focus();
+      setPendingSearchFocus(false);
+    }
+  }, [collapsed, pendingSearchFocus]);
+
+  function handleCollapsedSearch() {
+    if (collapsed) {
+      setPendingSearchFocus(true);
+      onToggle();
+      return;
+    }
+    searchRef.current?.focus();
+  }
+
+  function handleCollapsedExpandPinned() {
+    setPinnedCollapsed(false);
+    if (collapsed) {
+      onToggle();
+    }
+  }
+
+  function handleCollapsedExpandRecent() {
+    setRecentCollapsed(false);
+    if (collapsed) {
+      onToggle();
+    }
+  }
+
+  const collapsedContent = (
+    <div className="app-sidebar-collapsed-icons">
+      <Tooltip title="搜索对话" placement="right">
+        <Button
+          type="text"
+          className="app-sidebar-icon-btn"
+          icon={<SearchOutlined />}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCollapsedSearch();
+          }}
+        />
+      </Tooltip>
+
+      {pinnedSessions.length > 0 && (
+        <Tooltip title="已固定" placement="right">
+          <Button
+            type="text"
+            className="app-sidebar-icon-btn"
+            icon={<PushpinOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCollapsedExpandPinned();
+            }}
+          />
+        </Tooltip>
+      )}
+
+      {recentSessions.length > 0 && (
+        <Tooltip title="最近对话" placement="right">
+          <Button
+            type="text"
+            className="app-sidebar-icon-btn"
+            icon={<CommentOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCollapsedExpandRecent();
+            }}
+          />
+        </Tooltip>
+      )}
+    </div>
+  );
+
   return (
     <CollapsibleSidebar
       collapsed={collapsed}
@@ -81,9 +162,11 @@ export default function SessionSidebar({
       selectedKey="chat"
       showNewChat
       onNewChat={onNewChat}
+      collapsedContent={collapsedContent}
     >
       <div className="app-sessions-section">
         <Input
+          ref={searchRef}
           allowClear
           size="small"
           prefix={<SearchOutlined />}
@@ -122,6 +205,7 @@ export default function SessionSidebar({
               collapsed={recentCollapsed}
               onToggle={() => setRecentCollapsed((v) => !v)}
               emptyText="暂无对话"
+              fill
             >
               {recentSessions.map((s) => (
                 <SessionItem

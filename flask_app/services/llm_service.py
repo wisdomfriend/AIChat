@@ -56,7 +56,7 @@ class LLMService:
 
         用法:
         - 调用方: 聊天流式生成、Agent 执行
-        - 参数: `provider_id` — 如 `deepseek`、`openai`、`vllm`
+        - 参数: `provider_id` — 如 `deepseek`
         - 返回值: LangChain `ChatOpenAI` 实例
         """
         if provider_id not in self._llm_instances:
@@ -97,53 +97,14 @@ class LLMService:
         return llm
     
     def _get_api_key(self, provider_id: str) -> str:
-        """
-        获取 API Key
-        
-        DeepSeek: 从数据库读取
-        vLLM: 从配置读取
-        
-        Args:
-            provider_id: 模型提供商ID
-            
-        Returns:
-            API Key
-        """
-        provider_config = self.config.LLM_PROVIDERS[provider_id]
-        
-        # DeepSeek 从数据库读取 TODO 这里要改为统一的env访问方式
-        if provider_id == 'deepseek':
-            from ..database import get_session
-            from ..models import ApiKey
-            
-            db = get_session()
-            try:
-                api_key_obj = db.query(ApiKey).filter(
-                    ApiKey.provider == 'deepseek',
-                    ApiKey.is_active == True
-                ).first()
-                if not api_key_obj:
-                    raise ValueError("未配置 DeepSeek API Key")
-                return api_key_obj.api_key
-            finally:
-                db.close()
-        
-        # vLLM 从配置读取
-        elif provider_id == 'vllm':
-            api_key = provider_config.get('api_key')
-            if not api_key:
-                raise ValueError("未配置 vLLM API Key")
-            return api_key
-        
-        # OpenAI 从配置读取
-        elif provider_id == 'openai' or provider_id == 'openai-3.5-turbo':
-            api_key = provider_config.get('api_key')
-            if not api_key:
-                raise ValueError("未配置 OpenAI API Key")
-            return api_key
-        
-        else:
+        """从配置读取 API Key（DeepSeek 来自 DEEPSEEK_API_KEY 环境变量）。"""
+        if provider_id not in self.config.LLM_PROVIDERS:
             raise ValueError(f"未知的模型提供商: {provider_id}")
+        
+        api_key = self.config.LLM_PROVIDERS[provider_id].get('api_key')
+        if not api_key:
+            raise ValueError("未配置 DeepSeek API Key（请设置 DEEPSEEK_API_KEY 环境变量）")
+        return api_key
     
     def get_max_context_length(self, provider_id: str) -> int:
         """获取指定模型的最大上下文窗口（Token 数）。

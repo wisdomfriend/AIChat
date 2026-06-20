@@ -168,11 +168,10 @@ class AgentService:
 
         用法:
         - 调用方: `ChatService._process_agent_chat()`（agent_mode=`plan_execute`）
-        - 参数: `provider_id` — 保留接口一致性，实际固定使用 `openai-3.5-turbo`
+        - 参数: `provider_id` — LLM 提供商 ID
         - 返回值: LangChain `PlanAndExecute` 实例
         """
-        # 写死使用 openai-3.5-turbo 模型（支持 stop 参数） TODO gpt-5.2 不支持这个参数
-        llm = self.llm_service.get_llm('openai-3.5-turbo')
+        llm = self.llm_service.get_llm(provider_id)
         
         # 创建规划器和执行器
         try:

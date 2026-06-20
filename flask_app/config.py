@@ -111,57 +111,22 @@ class Config:
         self._validate_config()
     
     def _init_llm_providers(self):
-        """初始化 LLM 模型提供商配置"""
-        # vLLM 配置（支持环境变量覆盖）
-        vllm_api_key = os.environ.get('VLLM_API_KEY', '')
-        vllm_base_url = os.environ.get('VLLM_BASE_URL', '')
-        
-        # 模型提供商配置
+        """初始化 LLM 模型提供商配置（当前仅 DeepSeek）"""
+        self.DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', '')
         self.LLM_PROVIDERS = {
             'deepseek': {
                 'type': 'openai_compatible',
                 'base_url': 'https://api.deepseek.com/v1',
-                'api_key': None,  # 从数据库读取 TODO 需要统一改为从数据库读取
-                'model_name': 'deepseek-chat',
-                'display_name': 'deepseek-chat',
-                'max_context_length': 128000,
-                'supports_images': False,  # 不支持图片
+                'api_key': self.DEEPSEEK_API_KEY,
+                'model_name': 'deepseek-v4-flash',
+                'display_name': 'deepseek-v4-flash',
+                'max_context_length': 512000,
+                'supports_images': False,
                 'enabled': True
             },
-            'vllm': {
-                'type': 'openai_compatible',
-                'base_url': vllm_base_url,
-                'api_key': vllm_api_key,
-                'model_name': 'ayenaspring-pro-001',
-                'display_name': 'qwen3-awq',
-                'max_context_length': 128000,
-                'supports_images': False,  # 不支持图片
-                'enabled': True
-            },
-            'openai': {
-                'type': 'openai_compatible',
-                'base_url': 'https://api.openai.com/v1',
-                'api_key': os.environ.get('OPENAI_API_KEY', ''),
-                'model_name': 'gpt-5.4',
-                'display_name': 'gpt-5.4',
-                'max_context_length': 272000,  # gpt-5-pro 支持 128k 上下文
-                'supports_images': True,  # 支持图片
-                'enabled': True
-            },
-            'openai-3.5-turbo': {
-                'type': 'openai_compatible',
-                'base_url': 'https://api.openai.com/v1',
-                'api_key': os.environ.get('OPENAI_API_KEY', ''),
-                'model_name': 'gpt-3.5-turbo',
-                'display_name': 'gpt-3.5-turbo',
-                'max_context_length': 128000,  # gpt-5-pro 支持 128k 上下文
-                'supports_images': True,  # 支持图片
-                'enabled': True
-            }
         }
         
-        # 默认模型提供商
-        self.LLM_DEFAULT_PROVIDER = os.environ.get('LLM_DEFAULT_PROVIDER', 'deepseek')
+        self.LLM_DEFAULT_PROVIDER = 'deepseek'
     
     def _init_baidu_search_config(self):
         """初始化百度搜索配置"""

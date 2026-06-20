@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func
 
 from ..database import get_session
-from ..models import ApiKey, TokenUsage
+from ..models import TokenUsage
 
 
 class StatsService:

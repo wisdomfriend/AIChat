@@ -18,7 +18,7 @@ from sqlalchemy import func
 
 from ..config import Config
 from ..database import get_session, ensure_schema
-from ..models import ApiKey, ChatMessage, ChatSession, TokenUsage
+from ..models import ChatMessage, ChatSession, TokenUsage
 from .agent_service import AgentService
 from .baidu_search_service import BaiduSearchService
 from .file_service import FileService

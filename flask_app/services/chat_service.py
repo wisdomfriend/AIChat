@@ -20,7 +20,7 @@ from ..config import Config
 from ..database import get_session, ensure_schema
 from ..models import ChatMessage, ChatSession, TokenUsage
 from .agent_service import AgentService
-from .baidu_search_service import BaiduSearchService
+from .web_search_service import WebSearchService
 from .file_service import FileService
 from .langchain_memory_manager import LangChainMemoryManager
 from .llm_service import LLMService
@@ -32,7 +32,7 @@ class ChatService:
     def __init__(self):
         self.config = Config()
         self.llm_service = LLMService(self.config)
-        self.search_service = BaiduSearchService(self.config)
+        self.search_service = WebSearchService(self.config)
         self.agent_service = AgentService(self.config)
     
     def save_token_usage(self, user_id, usage_data, model_name):
@@ -427,10 +427,7 @@ class ChatService:
                     yield f"data: {json.dumps({'type': 'search_start', 'message': '正在搜索相关信息...'})}\n\n"
                     
                     # 执行搜索
-                    search_results = self.search_service.search(
-                        query=message,
-                        num_results=self.config.BAIDU_SEARCH_NUM_RESULTS
-                    )
+                    search_results = self.search_service.search(query=message)
                     
                     # 将搜索结果拼接到用户消息前
                     message = f"{search_results}\n\n用户问题：{message}"

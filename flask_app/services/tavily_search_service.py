@@ -1,0 +1,87 @@
+"""Tavily 联网搜索 Service。
+
+职责总览：
+- `TavilySearchService.search()`  执行搜索并返回格式化文本，供联网搜索模式使用
+"""
+from typing import Any, Dict, List
+
+from langchain_tavily import TavilySearch
+
+from ..config import Config
+
+
+class TavilySearchService:
+    """通过 langchain_tavily.TavilySearch 调用 Tavily Search API。"""
+
+    def __init__(self, config: Config = None):
+        self.config = config or Config()
+        self._search_tool = TavilySearch(
+            max_results=self.config.TAVILY_SEARCH_MAX_RESULTS,
+            tavily_api_key=self.config.TAVILY_API_KEY,
+        )
+
+    def search_results(self, query: str, num_results: int = None) -> List[Dict]:
+        """执行 Tavily 搜索并返回结构化结果列表。"""
+        try:
+            if num_results is not None and num_results != self.config.TAVILY_SEARCH_MAX_RESULTS:
+                search_tool = TavilySearch(
+                    max_results=num_results,
+                    tavily_api_key=self.config.TAVILY_API_KEY,
+                )
+            else:
+                search_tool = self._search_tool
+
+            data = search_tool.invoke({"query": query})
+            raw_results = self._extract_results(data)
+            return [self._normalize_result(item) for item in raw_results]
+        except Exception as e:
+            print(f"Tavily search error: {e}")
+            return []
+
+    def search(self, query: str, num_results: int = None) -> str:
+        """执行 Tavily 搜索并返回格式化文本。"""
+        try:
+            results = self.search_results(query, num_results)
+            if not results:
+                return "未找到相关搜索结果。"
+            return self._format_results(results, title="【Tavily 搜索结果】")
+        except Exception as e:
+            print(f"Tavily search error: {e}")
+            return f"搜索过程中出现错误: {str(e)}"
+
+    @staticmethod
+    def _extract_results(data: Any) -> List[Dict]:
+        if isinstance(data, dict):
+            results = data.get("results", data)
+        else:
+            results = data
+
+        if isinstance(results, dict):
+            return [results]
+        if isinstance(results, list):
+            return results
+        return []
+
+    @staticmethod
+    def _normalize_result(result: Dict) -> Dict:
+        return {
+            "source": "Tavily",
+            "title": result.get("title") or "无标题",
+            "snippet": result.get("content") or result.get("snippet") or "暂无摘要",
+            "url": result.get("url") or "",
+        }
+
+    @staticmethod
+    def _format_results(results: List[Dict], title: str = "【搜索结果】") -> str:
+        formatted = f"{title}\n\n"
+        for i, result in enumerate(results, 1):
+            label = result.get("source")
+            prefix = f"[{label}] " if label else ""
+            formatted += f"{i}. {prefix}{result.get('title') or '无标题'}\n"
+            formatted += f"   {result.get('snippet') or result.get('content') or '暂无摘要'}\n"
+            url = result.get("url") or ""
+            if url:
+                formatted += f"   链接: {url}\n"
+            formatted += "\n"
+
+        return formatted

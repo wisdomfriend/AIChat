@@ -23,6 +23,16 @@ class BaiduSearchService:
         # 延迟初始化：不在 __init__ 中立即访问百度，而是在第一次使用时再初始化
         self._session_initialized = False
     
+    def search_results(self, query: str, num_results: int = 3) -> List[Dict]:
+        """执行百度搜索并返回结构化结果列表。"""
+        try:
+            self._ensure_session_initialized()
+            results = self._search_with_scraping(query, num_results)
+            return [{**result, "source": "百度"} for result in results]
+        except Exception as e:
+            print(f"Baidu search error: {e}")
+            return []
+
     def search(self, query: str, num_results: int = 3) -> str:
         """执行百度搜索并返回格式化文本。
 
@@ -33,17 +43,13 @@ class BaiduSearchService:
         - 无结果: 返回 `"未找到相关搜索结果。"`
         """
         try:
-            # 确保会话已初始化（延迟初始化）
-            self._ensure_session_initialized()
-            
-            # 使用爬取方式搜索
-            results = self._search_with_scraping(query, num_results)
+            results = self.search_results(query, num_results)
             
             if not results:
                 return "未找到相关搜索结果。"
             
             # 格式化结果
-            formatted = "【搜索结果】\n\n"
+            formatted = "【百度搜索结果】\n\n"
             for i, result in enumerate(results, 1):
                 formatted += f"{i}. {result['title']}\n"
                 formatted += f"   {result['snippet']}\n"

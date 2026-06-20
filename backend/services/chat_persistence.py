@@ -5,8 +5,8 @@ from typing import Dict, List, Optional
 from langchain_core.messages import AIMessage, HumanMessage
 
 from ..config import Config
-from ..database import get_session
-from ..models import ChatMessage, ConversationSummary
+from ..db import get_session
+from ..db import ChatMessage, ConversationSummary
 from .file_service import FileService
 from .memory_store import MySQLChatMessageHistory
 
@@ -48,7 +48,7 @@ class ChatPersistenceService:
         import base64
         import os
 
-        from ..models import UploadedFile
+        from ..db import UploadedFile
 
         content_parts = []
         file_context = self.file_service.get_file_contexts_from_ids(

@@ -15,29 +15,21 @@ from flask import Flask
 from flasgger import Swagger
 import redis
 
-from .config import create_config
-from .database import init_db
-from .middleware import register_cors, register_error_handlers, register_request_logging
-from .routes import register_routes
+from backend.config import APP_CONFIG_KEY, configure_app
+from backend.db import init_db
+from backend.middleware import register_cors, register_error_handlers, register_request_logging
+from backend.routes import register_routes
 
 logger = logging.getLogger(__name__)
 
 
-def create_app(config_name='default'):
-    """创建并配置 Flask 应用实例。
-
-    用法:
-    - 调用方: `run.py`、`wsgi.py`
-    - 参数: `config_name`  配置名称（development / production 等）
-    - 返回值: 已完成 Redis、数据库、路由与 Swagger 注册的 Flask app
-    """
+def create_app(config_name="default"):
+    """创建并配置 Flask 应用实例。"""
     app = Flask(__name__)
-    
-    # 使用配置工厂函数创建配置实例（此时环境变量已经加载）
-    config_instance = create_config(config_name)
-    app.config.from_object(config_instance)
-    
-    # 初始化 Redis 连接（仅用于聊天限流；认证使用 Bearer Token）
+
+    configure_app(app, config_name=config_name)
+    config_instance = app.extensions[APP_CONFIG_KEY]
+
     try:
         redis_client = redis.Redis(
             host=config_instance.REDIS_HOST,
@@ -49,35 +41,33 @@ def create_app(config_name='default'):
             socket_timeout=5,
         )
         redis_client.ping()
-        app.config['REDIS_CLIENT'] = redis_client
-        logger.info(f"Redis连接成功: {config_instance.REDIS_HOST}:{config_instance.REDIS_PORT}")
+        app.config["REDIS_CLIENT"] = redis_client
+        logger.info("Redis连接成功: %s:%s", config_instance.REDIS_HOST, config_instance.REDIS_PORT)
     except Exception as e:
-        logger.error(f"Redis连接失败: {str(e)}", exc_info=True)
+        logger.error("Redis连接失败: %s", e, exc_info=True)
         logger.warning("限流将降级为放行模式")
-        app.config['REDIS_CLIENT'] = None
-    
+        app.config["REDIS_CLIENT"] = None
+
     register_request_logging(app)
 
-    # 初始化数据库
     try:
         init_db()
     except Exception as e:
-        logger.error(f"数据库初始化失败: {str(e)}", exc_info=True)
+        logger.error("数据库初始化失败: %s", e, exc_info=True)
 
-    # 初始化 LangGraph Postgres checkpointer
     try:
-        from .services.checkpointer_service import init_checkpointer
+        from backend.services.checkpointer_service import init_checkpointer
+
         init_checkpointer(config_instance)
     except Exception as e:
-        logger.error(f"Postgres checkpointer 初始化失败: {str(e)}", exc_info=True)
+        logger.error("Postgres checkpointer 初始化失败: %s", e, exc_info=True)
         logger.warning("Agent 对话功能可能不可用，请检查 PostgreSQL 配置")
 
     register_error_handlers(app)
     register_cors(app)
-    
+
     register_routes(app)
-    
-    # 初始化 Swagger 文档
+
     swagger_config = {
         "headers": [],
         "specs": [
@@ -90,16 +80,16 @@ def create_app(config_name='default'):
         ],
         "static_url_path": "/flasgger_static",
         "swagger_ui": True,
-        "specs_route": "/api-docs"
+        "specs_route": "/api-docs",
     }
-    
+
     swagger_template = {
         "swagger": "2.0",
         "info": {
             "title": "AIChat API 文档",
             "description": """
             AI 聊天应用的 API 接口文档，支持聊天、文件管理、会话管理等功能。
-            
+
             **重要提示：**
             - 除公开接口外，API 需 Bearer Token 认证
             - 请求头: `Authorization: Bearer <token>`
@@ -108,8 +98,8 @@ def create_app(config_name='default'):
             """,
             "version": "1.0.0",
             "contact": {
-                "email": "wisdomfriend@126.com"
-            }
+                "email": "wisdomfriend@126.com",
+            },
         },
         "basePath": "/api",
         "schemes": ["http", "https"],
@@ -122,38 +112,17 @@ def create_app(config_name='default'):
             },
         },
         "tags": [
-            {
-                "name": "认证",
-                "description": "Bearer Token 登录、注册与用户信息",
-            },
-            {
-                "name": "系统",
-                "description": "健康检查与服务探活",
-            },
-            {
-                "name": "聊天",
-                "description": "AI 聊天相关接口"
-            },
-            {
-                "name": "会话",
-                "description": "会话管理相关接口"
-            },
-            {
-                "name": "文件",
-                "description": "文件上传和管理相关接口"
-            },
-            {
-                "name": "模型",
-                "description": "LLM 模型提供商相关接口"
-            },
-            {
-                "name": "统计",
-                "description": "Token 用量统计（用户/管理员）"
-            }
-        ]
+            {"name": "认证", "description": "Bearer Token 登录、注册与用户信息"},
+            {"name": "系统", "description": "健康检查与服务探活"},
+            {"name": "聊天", "description": "AI 聊天相关接口"},
+            {"name": "会话", "description": "会话管理相关接口"},
+            {"name": "文件", "description": "文件上传和管理相关接口"},
+            {"name": "模型", "description": "LLM 模型提供商相关接口"},
+            {"name": "统计", "description": "Token 用量统计（用户/管理员）"},
+        ],
     }
-    
+
     Swagger(app, config=swagger_config, template=swagger_template)
     logger.info("Swagger 文档已初始化，访问 /api-docs 查看 API 文档")
-    
+
     return app

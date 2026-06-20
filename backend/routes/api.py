@@ -30,8 +30,8 @@ import os
 from flask import Blueprint, Response, jsonify, request, send_file, stream_with_context
 
 from ..config import Config
-from ..database import get_session
-from ..models import UploadedFile
+from ..db import get_session
+from ..db import UploadedFile
 from ..services import ChatService, FileService, LLMService
 from ..utils import get_current_user, rate_limit_chat, serialize_user
 from ..services.auth_token import get_bearer_token

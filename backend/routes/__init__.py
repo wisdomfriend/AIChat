@@ -1,4 +1,4 @@
-"""路由注册模块。
+﻿"""路由注册模块。
 
 Blueprint 总览：
 - `health_bp`     健康检查（/health）
@@ -13,7 +13,7 @@ def register_routes(app):
     """注册全部 Blueprint 到 Flask 应用。
 
     用法:
-    - 调用方: `flask_app.create_app()` 应用工厂
+    - 调用方: `backend.create_app()` 应用工厂
     - 挂载前缀: `/api`（`api_bp`）、`/api/auth`（`auth_api_bp`）、`/api/stats`（`stats_api_bp`）
     """
     from . import api, auth_api, health, stats_api

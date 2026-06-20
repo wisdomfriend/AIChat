@@ -34,7 +34,7 @@ services:
   flask-app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: backend/Dockerfile
     container_name: flask-app
     volumes:
       - ./:/app
@@ -48,7 +48,7 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
     env_file:
-      - .env
+      - backend/.env
     depends_on:
       mysql:
         condition: service_healthy

@@ -5,8 +5,8 @@ import traceback
 from sqlalchemy import func
 
 from ..config import Config
-from ..database import get_session, ensure_schema
-from ..models import ChatMessage, ChatSession, TokenUsage
+from ..db import ensure_schema, get_session
+from ..db import ChatMessage, ChatSession, TokenUsage
 from .agent_service import AgentService
 from .chat_persistence import ChatPersistenceService
 from .checkpointer_service import delete_thread

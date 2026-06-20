@@ -15,8 +15,8 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from ..config import Config
-from ..database import get_session
-from ..models import UploadedFile
+from ..db import get_session
+from ..db import UploadedFile
 
 
 class FileExtractor:

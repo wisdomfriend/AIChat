@@ -10,8 +10,8 @@ from datetime import datetime
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from ..database import get_session
-from ..models import User
+from ..db import get_session
+from ..db import User
 
 
 class AuthService:

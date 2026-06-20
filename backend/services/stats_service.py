@@ -10,8 +10,8 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import func
 
-from ..database import get_session
-from ..models import TokenUsage
+from ..db import get_session
+from ..db import TokenUsage
 
 
 class StatsService:

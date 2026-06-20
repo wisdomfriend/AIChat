@@ -9,8 +9,8 @@ from typing import List
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from ..database import get_session
-from ..models import ChatMessage, ChatSession
+from ..db import get_session
+from ..db import ChatMessage, ChatSession
 
 
 class MySQLChatMessageHistory(BaseChatMessageHistory):

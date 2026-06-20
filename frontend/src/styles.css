@@ -1,3 +1,16 @@
+/**
+ * 全站背景（编号 06 · 彩虹渐变）
+ */
+:root {
+  --app-bg-image: url("/images/bg-options/bg-06.jpg");
+  --app-bg-overlay: linear-gradient(
+    135deg,
+    rgba(247, 249, 252, 0.9) 0%,
+    rgba(240, 245, 250, 0.88) 45%,
+    rgba(232, 243, 255, 0.86) 100%
+  );
+}
+
 * {
   box-sizing: border-box;
 }
@@ -5,7 +18,11 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: #f0f5fa;
+  background-color: #f0f5fa;
+  background-image: var(--app-bg-overlay), var(--app-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
   color: #1f2937;
 }
@@ -16,17 +33,16 @@ body {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background:
-    radial-gradient(ellipse at 20% 0%, rgba(22, 119, 255, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 100%, rgba(64, 150, 255, 0.06) 0%, transparent 50%),
-    #f0f5fa;
+  background: transparent;
 }
 
 .hero-card {
   width: min(720px, 100%);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
-  border: 1px solid #e3eaf3;
+  border: 1px solid rgba(227, 234, 243, 0.9);
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(10px);
 }
 
 .auth-card {

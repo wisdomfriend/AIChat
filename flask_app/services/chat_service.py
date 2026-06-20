@@ -120,7 +120,7 @@ class ChatService:
         finally:
             db.close()
     
-    def get_sessions(self, user_id, limit=50):
+    def get_sessions(self, user_id, limit=200):
         """获取用户的会话列表（含消息数）。
 
         用法:

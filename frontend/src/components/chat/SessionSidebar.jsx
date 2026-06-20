@@ -96,7 +96,7 @@ export default function SessionSidebar({
         {!hasAny ? (
           <div className="app-sessions-empty">{keyword ? "无匹配对话" : "暂无历史对话"}</div>
         ) : (
-          <>
+          <div className="app-sessions-scroll">
             {pinnedSessions.length > 0 && (
               <SessionGroup
                 title="已固定"
@@ -132,7 +132,7 @@ export default function SessionSidebar({
                 />
               ))}
             </SessionGroup>
-          </>
+          </div>
         )}
       </div>
     </CollapsibleSidebar>

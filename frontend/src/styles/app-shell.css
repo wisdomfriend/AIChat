@@ -21,6 +21,12 @@
 
 .app-sidebar-collapsed {
   width: 56px;
+  cursor: pointer;
+}
+
+.app-sidebar-collapsed .app-sidebar-top,
+.app-sidebar-collapsed .app-sidebar-bottom {
+  cursor: default;
 }
 
 .app-sidebar-top {
@@ -85,9 +91,11 @@
 }
 
 .app-sidebar-collapsed .app-sidebar-actions {
-  padding: 4px 8px 8px;
+  padding: 4px 0 8px;
   display: flex;
   justify-content: center;
+  align-items: center;
+  width: 100%;
 }
 
 .app-new-chat-btn {
@@ -95,9 +103,27 @@
   justify-content: flex-start;
 }
 
-.app-sidebar-collapsed .app-new-chat-btn {
+.app-sidebar-collapsed .app-new-chat-btn-collapsed {
   width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 36px !important;
   padding: 0 !important;
+  margin: 0 auto;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.app-sidebar-collapsed .app-new-chat-btn-collapsed > span {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100%;
+}
+
+.app-sidebar-collapsed .app-new-chat-btn-collapsed .ant-btn-icon {
+  margin-inline-end: 0 !important;
 }
 
 .app-sidebar-nav {
@@ -142,6 +168,67 @@
 .app-session-search {
   margin-bottom: 8px;
   border-radius: 8px !important;
+}
+
+.app-session-group {
+  margin-bottom: 4px;
+}
+
+.app-session-group-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.app-session-group-header:hover {
+  color: #64748b;
+}
+
+.app-session-group-arrow {
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+
+.app-session-group-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.app-session-group-title {
+  flex: 1;
+  text-align: left;
+}
+
+.app-session-group-list {
+  max-height: none;
+  flex: none;
+  overflow-y: visible;
+}
+
+.app-session-pin {
+  font-size: 11px;
+  color: #1677ff;
+  flex-shrink: 0;
+}
+
+.app-session-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.app-session-title > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-sessions-header {
@@ -209,12 +296,10 @@
 .app-session-title {
   font-size: 13px;
   color: #334155;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.app-session-item.active .app-session-title {
+.app-session-item.active .app-session-title,
+.app-session-item.active .app-session-title > span {
   color: #1677ff;
   font-weight: 500;
 }

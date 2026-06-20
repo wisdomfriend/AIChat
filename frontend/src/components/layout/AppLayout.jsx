@@ -2,8 +2,6 @@
  * 政企风格后台布局（与聊天页共用可折叠侧栏）。
  */
 import { useState } from "react";
-import { Button, Tooltip } from "antd";
-import { MenuUnfoldOutlined } from "@ant-design/icons";
 import { clearAuth, getStoredUser } from "../../api/auth";
 import { useLocation, useNavigate } from "react-router-dom";
 import CollapsibleSidebar from "./CollapsibleSidebar";
@@ -39,16 +37,6 @@ export default function AppLayout({ title, children }) {
       <main className="app-shell-main">
         <header className="app-topbar">
           <div className="app-topbar-left">
-            {collapsed && (
-              <Tooltip title="展开侧栏">
-                <Button
-                  type="text"
-                  className="app-topbar-icon-btn"
-                  icon={<MenuUnfoldOutlined />}
-                  onClick={() => setCollapsed(false)}
-                />
-              </Tooltip>
-            )}
             <h1 className="app-topbar-title">{title}</h1>
           </div>
         </header>

@@ -2,6 +2,7 @@
  * 单条聊天消息（ChatGPT 式对齐）。
  */
 import MessageContent from "./MessageContent";
+import MessageActions from "./MessageActions";
 import AuthenticatedImage from "./AuthenticatedImage";
 
 export default function MessageItem({ message }) {
@@ -25,6 +26,7 @@ export default function MessageItem({ message }) {
             </div>
           )}
           <MessageContent content={message.content} isUser />
+          <MessageActions content={message.content} />
         </div>
       </div>
     );
@@ -48,6 +50,7 @@ export default function MessageItem({ message }) {
             tokens: {message.usage.total_tokens ?? message.usage.total ?? "-"}
           </div>
         )}
+        <MessageActions content={message.content} />
       </div>
     </div>
   );

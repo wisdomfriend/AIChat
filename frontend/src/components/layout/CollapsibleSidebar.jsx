@@ -138,7 +138,7 @@ export default function CollapsibleSidebar({
 
       {!collapsed && children}
 
-      <div className="app-sidebar-spacer" />
+      {(!children || collapsed) && <div className="app-sidebar-spacer" />}
 
       <div className="app-sidebar-bottom">
         <Dropdown menu={{ items: userMenuItems }} placement="topLeft" trigger={["click"]}>

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { isAuthenticated } from "./api/auth";
 import Admin from "./pages/Admin";
+import BgPreview from "./pages/BgPreview";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/bg-preview" element={<BgPreview />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/admin" element={<Admin />} />

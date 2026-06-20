@@ -7,7 +7,11 @@ body:has(.chat-app) {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #f7f9fc;
+  background-color: #f0f5fa;
+  background-image: var(--app-bg-overlay), var(--app-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   color: #1f2937;
   font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
 }
@@ -17,7 +21,7 @@ body:has(.chat-app) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f7f9fc;
+  background: transparent;
 }
 
 .chat-body {
@@ -34,8 +38,9 @@ body:has(.chat-app) {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px 0 24px;
-  border-bottom: 1px solid #e8edf3;
-  background: #f7f9fc;
+  border-bottom: 1px solid rgba(232, 237, 243, 0.9);
+  background: rgba(247, 249, 252, 0.82);
+  backdrop-filter: blur(8px);
 }
 
 .chat-session-title {
@@ -406,7 +411,8 @@ body:has(.chat-app) {
   align-items: flex-end;
   gap: 4px;
   padding: 8px 10px 8px 6px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
   border: 1px solid #dde4ee;
   border-radius: 26px;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);

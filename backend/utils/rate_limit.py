@@ -27,11 +27,9 @@ class RedisRateLimiter:
             return self.redis_client
 
         try:
-            from flask import current_app
+            from backend.config import get_config
 
-            redis_client = current_app.config.get("REDIS_CLIENT")
-            if redis_client:
-                return redis_client
+            return get_config().REDIS_CLIENT
         except Exception:
             pass
 

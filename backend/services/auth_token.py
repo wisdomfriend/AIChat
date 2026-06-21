@@ -15,9 +15,10 @@
 import json
 from functools import wraps
 
-from flask import Response, current_app, request
+from flask import Response, request
 from itsdangerous import BadSignature, BadTimeSignature, URLSafeTimedSerializer
 
+from ..config import get_config
 from ..middleware.errors import UnauthorizedError
 
 
@@ -29,7 +30,8 @@ def _get_serializer() -> URLSafeTimedSerializer:
     - 密钥: `AUTH_TOKEN_SECRET`（缺省回退 `SECRET_KEY`）
     - salt: `user-auth`
     """
-    secret = current_app.config.get("AUTH_TOKEN_SECRET") or current_app.config["SECRET_KEY"]
+    config = get_config()
+    secret = config.AUTH_TOKEN_SECRET or config.SECRET_KEY
     return URLSafeTimedSerializer(secret_key=secret, salt="user-auth")
 
 
@@ -64,7 +66,7 @@ def verify_user_token(token: str) -> dict | None:
     if not token:
         return None
     try:
-        max_age = int(current_app.config.get("AUTH_TOKEN_MAX_AGE", 86400))
+        max_age = int(get_config().AUTH_TOKEN_MAX_AGE)
         payload = _get_serializer().loads(token, max_age=max_age)
     except (BadSignature, BadTimeSignature):
         return None

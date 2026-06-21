@@ -149,14 +149,11 @@ class ProductionConfig(Config):
 
 def create_config(*, mode: str = DEVELOP):
     """从已加载的环境变量创建配置对象。"""
-    if mode not in (DEVELOP, PRODUCT, "development", "production", "default"):
+    if mode not in (DEVELOP, PRODUCT):
         raise RuntimeError(
             f"不支持的运行模式: {mode!r}，仅允许 {DEVELOP!r} 或 {PRODUCT!r}"
         )
     config_map = {
-        "development": DevelopmentConfig,
-        "production": ProductionConfig,
-        "default": DevelopmentConfig,
         DEVELOP: DevelopmentConfig,
         PRODUCT: ProductionConfig,
     }

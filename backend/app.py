@@ -40,12 +40,12 @@ def create_app(*, mode: str = DEVELOP):
             socket_timeout=5,
         )
         redis_client.ping()
-        app.config["REDIS_CLIENT"] = redis_client
+        config_instance.REDIS_CLIENT = redis_client
         logger.info("Redis连接成功: %s:%s", config_instance.REDIS_HOST, config_instance.REDIS_PORT)
     except Exception as e:
         logger.error("Redis连接失败: %s", e, exc_info=True)
         logger.warning("限流将降级为放行模式")
-        app.config["REDIS_CLIENT"] = None
+        config_instance.REDIS_CLIENT = None
 
     register_request_logging(app)
 

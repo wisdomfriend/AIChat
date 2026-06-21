@@ -5,6 +5,7 @@
 const TOOL_LABELS = {
   web_search: "联网搜索",
   get_time_info: "查询时间",
+  knowledge_search: "知识库检索",
 };
 
 function toolLabel(name) {

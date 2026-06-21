@@ -5,6 +5,7 @@ from .auth_token import admin_required, create_user_token, login_required, sse_l
 from .chat_persistence import ChatPersistenceService
 from .chat_service import ChatService
 from .file_service import FileService
+from .knowledge_service import KnowledgeService
 from .llm_service import LLMService, get_llm_service, register_llm_service
 from .stats_service import StatsService
 
@@ -20,6 +21,7 @@ __all__ = [
     'ChatPersistenceService',
     'StatsService',
     'FileService',
+    'KnowledgeService',
     'LLMService',
     'get_agent_service',
     'get_llm_service',

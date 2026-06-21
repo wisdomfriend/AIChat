@@ -219,7 +219,15 @@ class ChatService:
             title += "..."
         return title
 
-    def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None, llm_provider=None):
+    def process_chat_stream_with_session(
+        self,
+        user_id,
+        session_id,
+        message,
+        file_ids=None,
+        llm_provider=None,
+        knowledge_base_ids=None,
+    ):
         """处理带会话的 Agent 流式聊天。
 
         这是一个「生成器函数」，通过 yield 逐块输出 SSE（Server-Sent Events）数据，
@@ -280,6 +288,7 @@ class ChatService:
                 original_message=message,  # 存库用原始文本，不含文件注入前缀
                 file_ids=file_ids,
                 seed_messages=seed_messages,
+                knowledge_base_ids=knowledge_base_ids,
             )
         except Exception as e:
             error_traceback = traceback.format_exc()
@@ -297,6 +306,7 @@ class ChatService:
         original_message,
         file_ids,
         seed_messages,
+        knowledge_base_ids=None,
     ):
         try:
             assistant_content = ''
@@ -308,6 +318,8 @@ class ChatService:
                 session_id=session_id,
                 user_message=user_message,
                 seed_messages=seed_messages,
+                user_id=user_id,
+                knowledge_base_ids=knowledge_base_ids,
             ):
                 yield chunk
 

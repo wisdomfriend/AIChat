@@ -4,6 +4,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Button, Dropdown, message as antMessage } from "antd";
 import {
+  BookOutlined,
   CheckOutlined,
   EditOutlined,
   FileSearchOutlined,
@@ -43,9 +44,12 @@ export default function ChatComposer({
   llmProviders = [],
   llmProvider,
   selectedFiles,
+  knowledgeBases = [],
+  selectedKnowledgeBaseIds = [],
   statusText,
   onChangeProvider,
   onChangeFiles,
+  onChangeKnowledgeBaseIds,
   onSend,
   onStop,
   centered = false,
@@ -124,6 +128,22 @@ export default function ChatComposer({
     onChangeFiles(selectedFiles.filter((f) => f.id !== id));
   }
 
+  const kbOptions = useMemo(
+    () =>
+      knowledgeBases.map((kb) => ({
+        value: kb.id,
+        label: kb.name,
+      })),
+    [knowledgeBases]
+  );
+
+  function toggleKnowledgeBase(kbId) {
+    const next = selectedKnowledgeBaseIds.includes(kbId)
+      ? selectedKnowledgeBaseIds.filter((id) => id !== kbId)
+      : [...selectedKnowledgeBaseIds, kbId];
+    onChangeKnowledgeBaseIds(next);
+  }
+
   const toolMenuItems = [
     {
       type: "group",
@@ -139,6 +159,28 @@ export default function ChatComposer({
         onClick: () => onChangeProvider(opt.value),
       })),
     },
+    ...(kbOptions.length > 0
+      ? [
+          { type: "divider" },
+          {
+            type: "group",
+            label: "知识库",
+            children: kbOptions.map((opt) => ({
+              key: `kb-${opt.value}`,
+              icon: <BookOutlined />,
+              label: (
+                <span className="composer-menu-option">
+                  <span className="composer-menu-label">{opt.label}</span>
+                  {selectedKnowledgeBaseIds.includes(opt.value) && (
+                    <CheckOutlined className="composer-menu-check" />
+                  )}
+                </span>
+              ),
+              onClick: () => toggleKnowledgeBase(opt.value),
+            })),
+          },
+        ]
+      : []),
     { type: "divider" },
     {
       key: "file",

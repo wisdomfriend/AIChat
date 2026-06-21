@@ -27,6 +27,7 @@ import {
   updateSessionPin,
   uploadChatFiles,
 } from "../services/chatApi";
+import { fetchKnowledgeBases } from "../api/knowledge";
 import { createChatStreamController, streamChatMessage } from "../hooks/useChatStream";
 import { useChatStore } from "../stores/chatStore";
 import "../styles/app-shell.css";
@@ -50,6 +51,8 @@ function ChatPage() {
   const llmProvider = useChatStore((s) => s.llmProvider);
   const streamToolCalls = useChatStore((s) => s.streamToolCalls);
   const selectedFiles = useChatStore((s) => s.selectedFiles);
+  const knowledgeBases = useChatStore((s) => s.knowledgeBases);
+  const selectedKnowledgeBaseIds = useChatStore((s) => s.selectedKnowledgeBaseIds);
   const isNewChatDraft = useChatStore((s) => s.isNewChatDraft);
 
   const reloadSessions = useCallback(async () => {
@@ -75,10 +78,11 @@ function ChatPage() {
 
     async function boot() {
       try {
-        const [meData, providerData, sessionList] = await Promise.all([
+        const [meData, providerData, sessionList, kbList] = await Promise.all([
           apiFetch("/api/auth/me"),
           fetchLlmProviders(),
           fetchSessions(),
+          fetchKnowledgeBases().catch(() => []),
         ]);
         if (cancelled) {
           return;
@@ -90,6 +94,7 @@ function ChatPage() {
           defaultProvider: providerData.defaultProvider,
           llmProvider: providerData.defaultProvider,
           sessions: sessionList,
+          knowledgeBases: kbList,
           sessionId: null,
           messages: [],
           isNewChatDraft: true,
@@ -195,6 +200,7 @@ function ChatPage() {
         sessionId: useChatStore.getState().sessionId,
         fileIds,
         llmProvider: useChatStore.getState().llmProvider,
+        knowledgeBaseIds: useChatStore.getState().selectedKnowledgeBaseIds,
         storeApi: useChatStore,
         signal: streamRef.current.signal,
         onReloadSessions: () => {
@@ -301,10 +307,15 @@ function ChatPage() {
             llmProviders={llmProviders}
             llmProvider={llmProvider}
             selectedFiles={selectedFiles}
+            knowledgeBases={knowledgeBases}
+            selectedKnowledgeBaseIds={selectedKnowledgeBaseIds}
             statusText={statusText}
             centered={isEmptyView}
             onChangeProvider={(v) => useChatStore.setState({ llmProvider: v })}
             onChangeFiles={(files) => useChatStore.setState({ selectedFiles: files })}
+            onChangeKnowledgeBaseIds={(ids) =>
+              useChatStore.setState({ selectedKnowledgeBaseIds: ids })
+            }
             onSend={handleSend}
             onStop={handleStop}
           />

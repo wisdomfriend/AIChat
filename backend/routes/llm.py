@@ -1,4 +1,8 @@
-"""LLM 模型 API 路由。"""
+"""LLM 模型 API 路由。
+
+接口总览：
+- GET `/api/llm/providers`  获取已配置的 LLM 提供商列表及默认模型
+"""
 from flask import Blueprint, jsonify
 
 from ..config import get_config

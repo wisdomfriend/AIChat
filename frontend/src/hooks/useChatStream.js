@@ -15,6 +15,7 @@ export async function streamChatMessage({
   sessionId,
   fileIds,
   llmProvider,
+  knowledgeBaseIds,
   storeApi,
   signal,
   onReloadSessions,
@@ -28,6 +29,7 @@ export async function streamChatMessage({
     session_id: sessionId || undefined,
     file_ids: fileIds || [],
     llm_provider: llmProvider || undefined,
+    knowledge_base_ids: knowledgeBaseIds || [],
   };
 
   try {

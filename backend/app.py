@@ -124,6 +124,7 @@ def create_app(*, mode: str = DEVELOP):
             {"name": "文件", "description": "文件上传和管理相关接口"},
             {"name": "模型", "description": "LLM 模型提供商相关接口"},
             {"name": "统计", "description": "Token 用量统计（用户/管理员）"},
+            {"name": "知识库", "description": "知识库管理与混合检索"},
         ],
     }
 

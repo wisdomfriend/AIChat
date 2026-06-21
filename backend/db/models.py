@@ -11,6 +11,9 @@
 3) 文件与统计
    - `UploadedFile`  上传文件元数据与提取文本
    - `TokenUsage`    Token 用量记录
+4) 知识库
+   - `KnowledgeBase`  用户知识库
+   - `KbDocument`     知识库文档元数据
 """
 from sqlalchemy import (
     BigInteger,
@@ -136,6 +139,56 @@ class UploadedFile(Base):
     extracted_text = Column(Text)
     text_length = Column(Integer, default=0)
     extraction_status = Column(String(20), default="pending")
+    error_message = Column(String(500))
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(
+        TIMESTAMP,
+        server_default=text("CURRENT_TIMESTAMP"),
+        onupdate=text("CURRENT_TIMESTAMP"),
+    )
+
+
+class KnowledgeBase(Base):
+    """知识库表 `knowledge_bases`，每个用户可创建多个知识库。"""
+    __tablename__ = "knowledge_bases"
+    __table_args__ = (
+        Index("idx_knowledge_bases_user_id", "user_id"),
+        Index("idx_knowledge_bases_updated_at", "updated_at"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(200), nullable=False)
+    description = Column(Text)
+    document_count = Column(Integer, default=0)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(
+        TIMESTAMP,
+        server_default=text("CURRENT_TIMESTAMP"),
+        onupdate=text("CURRENT_TIMESTAMP"),
+    )
+
+
+class KbDocument(Base):
+    """知识库文档表 `kb_documents`，存储文档元数据与处理状态。"""
+    __tablename__ = "kb_documents"
+    __table_args__ = (
+        Index("idx_kb_documents_kb_id", "knowledge_base_id"),
+        Index("idx_kb_documents_user_id", "user_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    knowledge_base_id = Column(
+        Integer, ForeignKey("knowledge_bases.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    stored_filename = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    file_size = Column(BigInteger, nullable=False)
+    file_extension = Column(String(20), nullable=False)
+    status = Column(String(20), default="pending")
+    chunk_count = Column(Integer, default=0)
     error_message = Column(String(500))
     created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
     updated_at = Column(

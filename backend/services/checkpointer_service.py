@@ -23,7 +23,15 @@ def init_checkpointer(config) -> PostgresSaver:
         # setup 含 CREATE INDEX CONCURRENTLY，必须在 autocommit 连接上执行
         with PostgresSaver.from_conn_string(conn_string) as setup_saver:
             setup_saver.setup()
-        _pool = ConnectionPool(conninfo=conn_string, max_size=10, open=True)
+        _pool = ConnectionPool(
+            conninfo=conn_string,
+            max_size=10,
+            open=True,
+            check=ConnectionPool.check_connection,
+            max_idle=300,
+            reconnect_timeout=300,
+            kwargs={"connect_timeout": 10},
+        )
         _checkpointer = PostgresSaver(_pool)
         logger.info("Postgres checkpointer 已初始化: %s", config.POSTGRES_HOST)
         return _checkpointer

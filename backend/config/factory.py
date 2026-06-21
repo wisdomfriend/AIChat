@@ -25,7 +25,7 @@ class Config:
     MAX_FILE_SIZE = MAX_FILE_SIZE
 
     def __init__(self):
-        self.AUTH_TOKEN_SECRET = os.environ.get("AUTH_TOKEN_SECRET", self.SECRET_KEY)
+        self.AUTH_TOKEN_SECRET = os.environ.get("AUTH_TOKEN_SECRET")
         self.AUTH_TOKEN_MAX_AGE = int(os.environ.get("AUTH_TOKEN_MAX_AGE", "86400"))
 
         self.MYSQL_HOST = os.environ.get("MYSQL_HOST", "mysql")
@@ -68,6 +68,25 @@ class Config:
             },
         }
         self.LLM_DEFAULT_PROVIDER = "deepseek"
+
+        self.KB_EMBEDDING_API_URL = os.environ.get("KB_EMBEDDING_API_URL", "")
+        self.KB_EMBEDDING_API_KEY = os.environ.get("KB_EMBEDDING_API_KEY", "")
+        self.KB_EMBEDDING_MODEL = os.environ.get("KB_EMBEDDING_MODEL", "embedding")
+        self.KB_EMBEDDING_DIMENSION = int(os.environ.get("KB_EMBEDDING_DIMENSION", "512"))
+        self.KB_EMBEDDING_TIMEOUT = int(os.environ.get("KB_EMBEDDING_TIMEOUT", "60"))
+
+        self.KB_RERANK_API_URL = os.environ.get("KB_RERANK_API_URL", "")
+        self.KB_RERANK_API_KEY = os.environ.get("KB_RERANK_API_KEY", "")
+        self.KB_RERANK_MODEL = os.environ.get("KB_RERANK_MODEL", "rerank")
+        self.KB_RERANK_TIMEOUT = int(os.environ.get("KB_RERANK_TIMEOUT", "60"))
+
+        self.KB_CHUNK_SIZE = int(os.environ.get("KB_CHUNK_SIZE", "800"))
+        self.KB_CHUNK_OVERLAP = int(os.environ.get("KB_CHUNK_OVERLAP", "100"))
+        self.KB_TOP_K = int(os.environ.get("KB_TOP_K", "5"))
+        self.KB_VECTOR_CANDIDATES = int(os.environ.get("KB_VECTOR_CANDIDATES", "20"))
+        self.KB_BM25_CANDIDATES = int(os.environ.get("KB_BM25_CANDIDATES", "20"))
+        self.KB_RRF_K = int(os.environ.get("KB_RRF_K", "60"))
+        self.KB_RERANK_CANDIDATES = int(os.environ.get("KB_RERANK_CANDIDATES", "20"))
 
     @property
     def DATABASE_URL(self):

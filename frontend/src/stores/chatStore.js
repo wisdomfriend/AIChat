@@ -18,6 +18,8 @@ export const useChatStore = create((set) => ({
   llmProvider: "",
   defaultProvider: "",
   selectedFiles: [],
+  knowledgeBases: [],
+  selectedKnowledgeBaseIds: [],
   isNewChatDraft: false,
   activeStreamSessionId: null,
 
@@ -42,6 +44,7 @@ export const useChatStore = create((set) => ({
       waitingReply: false,
       statusText: "",
       selectedFiles: [],
+      selectedKnowledgeBaseIds: [],
       isNewChatDraft: true,
       activeStreamSessionId: null,
     }),

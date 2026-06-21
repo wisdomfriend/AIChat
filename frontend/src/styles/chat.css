@@ -474,7 +474,19 @@ body:has(.chat-app) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-width: 140px;
+  min-width: 160px;
+}
+
+.composer-menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.composer-tools-dropdown .ant-dropdown-menu {
+  min-width: 200px;
+  max-width: 280px;
 }
 
 .composer-menu-check {

@@ -1,4 +1,16 @@
-"""文件管理 API 路由。"""
+"""文件管理 API 路由。
+
+接口总览（按用户使用流程）：
+1) 文件上传与查询
+   - POST   `/api/files`              上传文件
+   - GET    `/api/files`              获取当前用户的文件列表
+   - GET    `/api/files/<file_id>`     获取文件详情
+2) 文件删除与预览
+   - DELETE `/api/files/<file_id>`     删除文件
+   - GET    `/api/files/<file_id>/image`  获取图片二进制内容
+3) 配置
+   - GET    `/api/files/supported`     支持的文件类型与大小限制（公开）
+"""
 import os
 
 from flask import Blueprint, jsonify, request, send_file

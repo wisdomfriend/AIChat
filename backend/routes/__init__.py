@@ -8,17 +8,19 @@ Blueprint 总览：
 - `file_bp`      文件管理 API（/api/files/*）
 - `llm_bp`       LLM 模型 API（/api/llm/*）
 - `stats_api_bp` Token 统计 API（/api/stats/*）
+- `knowledge_bp`  知识库 API（/api/knowledge-bases/*）
 """
 
 
 def register_routes(app):
     """注册全部 Blueprint 到 Flask 应用。"""
-    from . import auth, chat, file, health, llm, stats_api
+    from . import auth, chat, file, health, knowledge, llm, stats_api
 
     app.register_blueprint(health.health_bp)
     app.register_blueprint(auth.auth_bp, url_prefix="/api/auth")
     app.register_blueprint(auth.auth_debug_bp, url_prefix="/api")
     app.register_blueprint(chat.chat_bp, url_prefix="/api")
     app.register_blueprint(file.file_bp, url_prefix="/api")
+    app.register_blueprint(knowledge.knowledge_bp, url_prefix="/api")
     app.register_blueprint(llm.llm_bp, url_prefix="/api")
     app.register_blueprint(stats_api.stats_api_bp, url_prefix="/api/stats")

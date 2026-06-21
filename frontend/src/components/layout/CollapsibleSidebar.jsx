@@ -14,7 +14,10 @@ import {
 import AppLogo from "../AppLogo";
 import "../../styles/app-shell.css";
 
-const DEFAULT_NAV = [{ key: "chat", label: "智能对话", path: "/chat" }];
+const DEFAULT_NAV = [
+  { key: "chat", label: "智能对话", path: "/chat" },
+  { key: "knowledge", label: "知识库", path: "/knowledge" },
+];
 
 const INTERACTIVE_SELECTOR = "button, .ant-btn, .ant-dropdown-trigger, a, input, textarea, select";
 

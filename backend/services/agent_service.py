@@ -8,20 +8,23 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from .agent_tools import build_agent_tools
 from .checkpointer_service import get_checkpointer
+from .knowledge_service import KnowledgeService
 from .llm_service import LLMService
 from .web_search_service import WebSearchService
 
 SYSTEM_PROMPT = """你是一个友好、专业且乐于助人的 AI 助手。
 
 你可以使用以下工具：
+- knowledge_search：检索用户选择的知识库（内部文档、制度、项目资料等）
 - web_search：搜索互联网，获取新闻、价格、天气等实时信息
 - get_time_info：获取当前时间
 
 规则：
-1. 需要实时或最新信息时，主动调用 web_search，不要编造
-2. 用户问时间、日期时，调用 get_time_info
-3. 用简洁清晰的中文回答；不确定时请诚实说明
-4. 用户上传的文件内容已在消息中，请基于文件内容作答"""
+1. 用户已选择知识库时，涉及文档/内部资料的问题优先调用 knowledge_search，不要编造
+2. 需要实时或最新信息时，主动调用 web_search，不要编造
+3. 用户问时间、日期时，调用 get_time_info
+4. 用简洁清晰的中文回答；不确定时请诚实说明
+5. 用户上传的文件内容已在消息中，请基于文件内容作答"""
 
 
 class AgentService:
@@ -31,11 +34,12 @@ class AgentService:
         self.config = config
         self.llm_service = llm_service or LLMService(config)
         self.search_service = WebSearchService(config)
+        self.knowledge_service = KnowledgeService(config)
         self._agents: Dict[str, object] = {}
 
     def _create_agent(self, provider_id: str):
         llm = self.llm_service.get_llm(provider_id)
-        tools = build_agent_tools(self.search_service)
+        tools = build_agent_tools(self.search_service, self.knowledge_service)
         checkpointer = get_checkpointer()
         middleware = [
             SummarizationMiddleware(
@@ -79,8 +83,15 @@ class AgentService:
         session_id: int,
         user_message: HumanMessage,
         seed_messages: Optional[List] = None,
+        user_id: Optional[int] = None,
+        knowledge_base_ids: Optional[List[int]] = None,
     ) -> Generator[str, None, None]:
         """流式运行 Agent，yield SSE 事件。"""
+        from .knowledge.context import clear_knowledge_context, set_knowledge_context
+
+        if user_id is not None:
+            set_knowledge_context(user_id, knowledge_base_ids)
+
         agent = self.get_agent(provider_id)
         config = self._agent_config(session_id)
 
@@ -145,6 +156,8 @@ class AgentService:
             error_msg = f"Agent 执行错误: {str(e)}"
             yield f"data: {json.dumps({'type': 'error', 'message': error_msg}, ensure_ascii=False)}\n\n"
             raise
+        finally:
+            clear_knowledge_context()
 
     def _events_from_update_message(
         self,

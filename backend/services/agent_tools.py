@@ -5,9 +5,11 @@ import pytz
 from langchain_core.tools import tool
 from langgraph.config import get_stream_writer
 
+from .knowledge.context import get_knowledge_context
 
-def build_agent_tools(search_service):
-    """构建 Agent 工具列表（注入 search_service）。"""
+
+def build_agent_tools(search_service, knowledge_service=None):
+    """构建 Agent 工具列表（注入 search_service / knowledge_service）。"""
 
     @tool
     def web_search(query: str) -> str:
@@ -43,4 +45,44 @@ def build_agent_tools(search_service):
             writer({"type": "tool_status", "tool": "get_time_info", "status": "done", "message": "查询完成"})
         return result
 
-    return [web_search, get_time_info]
+    @tool
+    def knowledge_search(query: str) -> str:
+        """检索用户知识库中的相关内容。当问题涉及已上传文档、内部资料、政策制度、项目文档时使用；优先于联网搜索。"""
+        writer = get_stream_writer()
+        if writer:
+            writer(
+                {
+                    "type": "tool_status",
+                    "tool": "knowledge_search",
+                    "status": "start",
+                    "message": "正在检索知识库...",
+                }
+            )
+
+        ctx = get_knowledge_context()
+        if not ctx or not ctx.knowledge_base_ids:
+            result = "当前未选择知识库，无法检索。请在聊天界面选择知识库后重试。"
+        elif not knowledge_service:
+            result = "知识库服务未启用。"
+        else:
+            try:
+                result = knowledge_service.search_for_agent(
+                    user_id=ctx.user_id,
+                    knowledge_base_ids=ctx.knowledge_base_ids,
+                    query=query,
+                )
+            except Exception as e:
+                result = f"知识库检索失败: {str(e)}"
+
+        if writer:
+            writer(
+                {
+                    "type": "tool_status",
+                    "tool": "knowledge_search",
+                    "status": "done",
+                    "message": "知识库检索完成",
+                }
+            )
+        return result
+
+    return [web_search, get_time_info, knowledge_search]

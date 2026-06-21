@@ -13,11 +13,13 @@ export default function AppLayout({ title, children }) {
   const user = getStoredUser();
   const [collapsed, setCollapsed] = useState(true);
 
-  const selectedKey = location.pathname.startsWith("/admin")
-    ? "admin"
-    : location.pathname.startsWith("/dashboard")
-      ? "dashboard"
-      : "chat";
+  const selectedKey = location.pathname.startsWith("/knowledge")
+    ? "knowledge"
+    : location.pathname.startsWith("/admin")
+      ? "admin"
+      : location.pathname.startsWith("/dashboard")
+        ? "dashboard"
+        : "chat";
 
   function handleLogout() {
     clearAuth();

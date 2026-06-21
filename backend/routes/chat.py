@@ -1,4 +1,14 @@
-"""聊天与会话 API 路由。"""
+"""聊天与会话 API 路由。
+
+接口总览（按用户使用流程）：
+1) 发送消息
+   - POST `/api/chat`  发送消息并返回 SSE 流式响应（支持附件、知识库、模型选择）
+2) 会话管理
+   - GET    `/api/sessions`                      获取当前用户的会话列表
+   - GET    `/api/sessions/<session_id>/messages`  获取会话消息历史
+   - PATCH  `/api/sessions/<session_id>`       更新会话（如固定/取消固定）
+   - DELETE `/api/sessions/<session_id>`       删除会话
+"""
 import json
 
 from flask import Blueprint, Response, jsonify, request, stream_with_context
@@ -20,7 +30,7 @@ def api_chat():
     用法:
     - 方法/路径: `POST /api/chat`
     - 认证: Bearer Token
-    - 请求体: `{ "message": "...", "session_id": 1, "file_ids": [], "llm_provider": "..." }`
+    - 请求体: `{ "message": "...", "session_id": 1, "file_ids": [], "llm_provider": "...", "knowledge_base_ids": [] }`
     - 成功响应: `text/event-stream`，事件 `{ "type": "chunk"|"end"|"error", ... }`
     - 失败响应: 401 未登录；400 参数错误；429 访问过于频繁
     ---
@@ -63,6 +73,12 @@ def api_chat():
               type: string
               description: 模型提供商ID（可选）
               example: "deepseek"
+            knowledge_base_ids:
+              type: array
+              items:
+                type: integer
+              description: 选中的知识库 ID 列表（可选，Agent 将优先检索内部文档）
+              example: [1]
     responses:
       200:
         description: 流式响应成功
@@ -108,6 +124,7 @@ def api_chat():
         session_id = data.get('session_id')  # 会话ID，如果为None则创建新会话
         file_ids = data.get('file_ids', [])  # 附加的文件ID列表
         llm_provider = data.get('llm_provider')  # 模型提供商ID（可选）
+        knowledge_base_ids = data.get('knowledge_base_ids', [])
         
         if not message:
             return Response(
@@ -141,6 +158,7 @@ def api_chat():
                     message,
                     file_ids,
                     llm_provider,
+                    knowledge_base_ids,
                 ):
                     yield chunk
             except Exception as e:
@@ -373,7 +391,53 @@ def get_session_messages(session_id):
 
 @chat_bp.route('/sessions/<int:session_id>', methods=['PATCH'])
 def update_session(session_id):
-    """更新会话属性（如固定状态）。"""
+    """更新会话属性（如固定状态）。
+
+    用法:
+    - 方法/路径: `PATCH /api/sessions/<session_id>`
+    - 认证: Bearer Token
+    - 请求体: `{ "pinned": true }`
+    - 成功响应: `{ "success": true, "is_pinned": true }`
+    - 失败响应: 400 缺少参数；401 未登录；404 会话不存在；500 更新失败
+    ---
+    tags:
+      - 会话
+    summary: 更新会话属性
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: session_id
+        type: integer
+        required: true
+        description: 会话 ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - pinned
+          properties:
+            pinned:
+              type: boolean
+              description: 是否固定会话
+    responses:
+      200:
+        description: 更新成功
+      400:
+        description: 缺少 pinned 参数
+      401:
+        description: 未登录
+      404:
+        description: 会话不存在或无权限
+      500:
+        description: 服务器内部错误
+    """
     user = get_current_user()
     if not user:
         return jsonify({'error': '未登录'}), 401
@@ -399,7 +463,37 @@ def update_session(session_id):
 
 @chat_bp.route('/sessions/<int:session_id>', methods=['DELETE'])
 def delete_session_route(session_id):
-    """删除指定会话。"""
+    """删除指定会话及其消息记录。
+
+    用法:
+    - 方法/路径: `DELETE /api/sessions/<session_id>`
+    - 认证: Bearer Token
+    - 成功响应: `{ "success": true }`
+    - 失败响应: 401 未登录；404 会话不存在；500 删除失败
+    ---
+    tags:
+      - 会话
+    summary: 删除会话
+    produces:
+      - application/json
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: session_id
+        type: integer
+        required: true
+        description: 会话 ID
+    responses:
+      200:
+        description: 删除成功
+      401:
+        description: 未登录
+      404:
+        description: 会话不存在或无权限
+      500:
+        description: 服务器内部错误
+    """
     user = get_current_user()
     if not user:
         return jsonify({'error': '未登录'}), 401

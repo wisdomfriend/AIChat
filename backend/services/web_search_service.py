@@ -1,23 +1,23 @@
-"""联网搜索聚合 Service（Tavily + 百度）。
+"""联网搜索聚合 Service（Tavily + 百度 Provider）。
 
 职责总览：
-- `WebSearchService.search()`  并行调用 Tavily 与百度搜索，合并结果后返回格式化文本
+- `WebSearchService.search()`  并行调用各 Search Provider，合并结果后返回格式化文本
 """
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List
 
 from ..config import Config
-from .baidu_search_service import BaiduSearchService
-from .tavily_search_service import TavilySearchService
+from .baidu_search_provider import BaiduSearchProvider
+from .tavily_search_provider import TavilySearchProvider
 
 
 class WebSearchService:
-    """并行执行 Tavily 与百度搜索，合并去重后返回统一格式文本。"""
+    """并行执行 Tavily、百度 Provider，合并去重后返回统一格式文本。"""
 
     def __init__(self, config: Config = None):
         self.config = config or Config()
-        self.tavily_service = TavilySearchService(self.config)
-        self.baidu_service = BaiduSearchService(self.config)
+        self.tavily_provider = TavilySearchProvider(self.config)
+        self.baidu_provider = BaiduSearchProvider(self.config)
 
     def search(self, query: str, num_results: int = None) -> str:
         """并行搜索并合并 Tavily、百度结果。"""
@@ -28,8 +28,8 @@ class WebSearchService:
         baidu_results: List[Dict] = []
 
         with ThreadPoolExecutor(max_workers=2) as executor:
-            tavily_future = executor.submit(self.tavily_service.search_results, query, tavily_num)
-            baidu_future = executor.submit(self.baidu_service.search_results, query, baidu_num)
+            tavily_future = executor.submit(self.tavily_provider.search_results, query, tavily_num)
+            baidu_future = executor.submit(self.baidu_provider.search_results, query, baidu_num)
 
             try:
                 tavily_results = tavily_future.result()

@@ -20,7 +20,7 @@ class ChatService:
         self.llm_service = llm_service
         self.agent_service = agent_service
 
-    def save_token_usage(self, user_id, usage_data, model_name):
+    def save_token_usage(self, user_id: object, usage_data: object, model_name: object) -> object:
         db = get_session()
         try:
             token_usage = TokenUsage(
@@ -269,18 +269,29 @@ class ChatService:
         return title
 
     def process_chat_stream_with_session(self, user_id, session_id, message, file_ids=None, llm_provider=None):
-        """处理带会话的 Agent 流式聊天。"""
+        """处理带会话的 Agent 流式聊天。
+
+        这是一个「生成器函数」，通过 yield 逐块输出 SSE（Server-Sent Events）数据，
+        供 Flask 路由以 text/event-stream 形式推送给前端。
+
+        整体流程：会话准备 → 权限校验 → 确定 LLM → 构建消息 → 委托 Agent 流式执行。
+        """
         try:
+            # ── 会话准备（新对话时自动建会话）──
             if not session_id:
+                # 前端首次发消息时 session_id 为空，用消息前 30 字作为标题
                 title = self.generate_title_from_message(message)
                 session_id = self.create_session(user_id, title, llm_provider)
                 if not session_id:
                     yield f"data: {json.dumps({'type': 'error', 'message': '创建会话失败'})}\n\n"
                     return
+                # 通知前端新会话 ID，便于后续请求带上 session_id
                 yield f"data: {json.dumps({'type': 'session_id', 'session_id': session_id})}\n\n"
 
+            # ── 校验会话归属 + 确定 LLM 提供商 ──
             db = get_session()
             try:
+                # 必须同时匹配 session_id 与 user_id，防止越权访问他人会话
                 session = db.query(ChatSession).filter(
                     ChatSession.id == session_id,
                     ChatSession.user_id == user_id
@@ -290,26 +301,32 @@ class ChatService:
                     return
 
                 if llm_provider:
+                    # 请求显式指定模型时，更新会话记录并优先使用
                     provider_id = llm_provider
                     if hasattr(session, 'llm_provider'):
                         session.llm_provider = provider_id
                         db.commit()
                 else:
+                    # 未指定则沿用会话已保存的 provider，再回退到全局默认
                     provider_id = getattr(session, 'llm_provider', None) or self.config.LLM_DEFAULT_PROVIDER
             finally:
                 db.close()
 
+            # ── 构建 Agent 输入 ──
             persistence = ChatPersistenceService(session_id=session_id, user_id=user_id)
+            # 将用户文本 + 附件内容拼成 LangChain HumanMessage（支持多模态图片）
             user_message = persistence.build_user_message(message, file_ids, provider_id)
+            # 从 MySQL 拉最近历史，用于 PG checkpoint 首次为空时的 bootstrap
             seed_messages = persistence.get_bootstrap_messages()
 
+            # ── 阶段 4：流式执行 Agent，并透传所有 SSE 事件 ──
             yield from self._process_agent_stream(
                 user_id=user_id,
                 session_id=session_id,
                 provider_id=provider_id,
                 persistence=persistence,
                 user_message=user_message,
-                original_message=message,
+                original_message=message,  # 存库用原始文本，不含文件注入前缀
                 file_ids=file_ids,
                 seed_messages=seed_messages,
             )
@@ -377,7 +394,7 @@ class ChatService:
             finally:
                 db.close()
 
-            if msg_count <= 2:
+            if msg_count == 2:
                 title = self.generate_title_from_message(original_message)
                 self.update_session_title(session_id, user_id, title)
                 yield f"data: {json.dumps({'type': 'session_title', 'title': title})}\n\n"

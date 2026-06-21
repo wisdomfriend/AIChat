@@ -1,14 +1,15 @@
-"""Tavily 联网搜索 Service。
+"""Tavily 联网搜索 Provider。
 
 职责总览：
-- `TavilySearchService.search()`  执行搜索并返回格式化文本，供联网搜索模式使用
+- `TavilySearchProvider.search_results()`  返回结构化结果，供 WebSearchService 聚合
+- `TavilySearchProvider.search()`  返回格式化文本（独立调用时使用）
 """
 from typing import Any, Dict, List
 
 from ..config import Config
 
 
-class TavilySearchService:
+class TavilySearchProvider:
     """通过 langchain_tavily.TavilySearch 调用 Tavily Search API。"""
 
     def __init__(self, config: Config = None):

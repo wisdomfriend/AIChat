@@ -1,7 +1,8 @@
-"""百度搜索 Service（网页爬取方式）。
+"""百度搜索 Provider（网页爬取方式）。
 
 职责总览：
-- `BaiduSearchService.search()`  执行搜索并返回格式化文本，供 Agent 联网模式使用
+- `BaiduSearchProvider.search_results()`  返回结构化结果，供 WebSearchService 聚合
+- `BaiduSearchProvider.search()`  返回格式化文本（独立调用时使用）
 """
 import time
 import urllib.parse
@@ -13,7 +14,7 @@ from bs4 import BeautifulSoup
 from ..config import Config
 
 
-class BaiduSearchService:
+class BaiduSearchProvider:
     """通过 requests + BeautifulSoup 爬取百度搜索结果。"""
     
     def __init__(self, config: Config = None):

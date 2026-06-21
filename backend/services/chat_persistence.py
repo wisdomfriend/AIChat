@@ -6,9 +6,8 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from ..config import Config
 from ..db import get_session
-from ..db import ChatMessage, ConversationSummary
+from ..db import ChatMessage
 from .file_service import FileService
-from .memory_store import MySQLChatMessageHistory
 
 
 class ChatPersistenceService:
@@ -21,7 +20,6 @@ class ChatPersistenceService:
         self.user_id = user_id
         self.config = Config()
         self.file_service = FileService()
-        self.message_history = MySQLChatMessageHistory(session_id, user_id)
 
     def build_user_message(self, user_message: str, file_ids: List[int] = None, llm_provider: str = None) -> HumanMessage:
         """构建带文件上下文的用户消息。"""
@@ -138,28 +136,6 @@ class ChatPersistenceService:
             db.commit()
         except Exception as e:
             print(f"Save turn error: {e}")
-            db.rollback()
-        finally:
-            db.close()
-
-    def save_summary(self, message_count: int, summary_content: str, token_count: int = 0) -> None:
-        """同步摘要到 MySQL（供 UI 提示）。"""
-        db = get_session()
-        try:
-            db.query(ConversationSummary).filter(
-                ConversationSummary.session_id == self.session_id
-            ).delete()
-            db.add(
-                ConversationSummary(
-                    session_id=self.session_id,
-                    message_count=message_count,
-                    summary_content=summary_content,
-                    token_count=token_count,
-                )
-            )
-            db.commit()
-        except Exception as e:
-            print(f"Save summary error: {e}")
             db.rollback()
         finally:
             db.close()

@@ -4,20 +4,13 @@
 1) 实例管理
    - `get_llm()`  获取/缓存 BaseChatOpenAI 实例
    - `get_available_providers()`  返回可用提供商列表
-2) Token 计算
-   - `count_tokens()`  估算消息列表 Token 数
-3) 配置
+2) 配置
    - `get_provider_config()`  读取指定提供商配置
-   - `get_max_context_length()`  获取上下文窗口大小
 """
-import asyncio
-import json
 import threading
-from typing import AsyncGenerator, Dict, List, Optional
+from typing import Dict, List
 
-import tiktoken
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_openai.chat_models.base import BaseChatOpenAI
 
 
@@ -110,179 +103,6 @@ class LLMService:
             raise ValueError("未配置 DeepSeek API Key（请设置 DEEPSEEK_API_KEY 环境变量）")
         return api_key
     
-    def get_max_context_length(self, provider_id: str) -> int:
-        """获取指定模型的最大上下文窗口（Token 数）。
-
-        用法:
-        - 调用方: `LangChainMemoryManager` 压缩判断
-        - 参数: `provider_id`
-        - 返回值: Token 数，默认 32768
-        """
-        if provider_id not in self.config.LLM_PROVIDERS:
-            raise ValueError(f"不支持的模型提供商: {provider_id}")
-        
-        provider_config = self.config.LLM_PROVIDERS[provider_id]
-        return provider_config.get('max_context_length', 32768)
-    
-    def count_tokens(self, messages: List[Dict], provider_id: str) -> int:
-        """估算消息列表的 Token 数量。
-
-        用法:
-        - 调用方: 上下文压缩、用量统计
-        - 参数: `messages` — `[{ role, content }]`；`provider_id`
-        - 返回值: 估算 Token 总数（tiktoken cl100k_base）
-        """
-        # 获取模型配置
-        provider_config = self.config.LLM_PROVIDERS.get(provider_id, {})
-        model_name = provider_config.get('model_name', 'gpt-3.5-turbo')
-        
-        # 使用 tiktoken 计算（默认使用 gpt-3.5-turbo 的编码）
-        try:
-            encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
-        except KeyError:
-            # 如果模型不存在，使用 cl100k_base 编码（GPT-3.5/4 通用）
-            encoding = tiktoken.get_encoding("cl100k_base")
-        
-        # 计算所有消息的 token 数
-        total_tokens = 0
-        for message in messages:
-            role = message.get('role', '')
-            content = message.get('content', '')
-            
-            # 处理多模态消息（content 是列表）
-            if isinstance(content, list):
-                tokens = 0
-                for part in content:
-                    if isinstance(part, dict):
-                        part_type = part.get('type', '')
-                        if part_type == 'text':
-                            # 文本部分：计算实际 token
-                            text = part.get('text', '')
-                            if isinstance(text, str):
-                                tokens += len(encoding.encode(text))
-                        elif part_type == 'image_url':
-                            # 图片部分：估算 token（通常图片会占用较多 token）
-                            # 粗略估算：每张图片约 85 token（基于 GPT-4 Vision 的估算）
-                            tokens += 85
-            elif isinstance(content, str):
-                # 普通文本消息：直接计算 token
-                tokens = len(encoding.encode(content))
-            else:
-                # 如果 content 不是字符串也不是列表，转换为字符串
-                content_str = str(content) if content is not None else ''
-                tokens = len(encoding.encode(content_str))
-            
-            # 每条消息的格式：role + content + 格式标记
-            # 粗略估算：content token + 4（格式标记）
-            total_tokens += tokens + 4
-        
-        # 添加系统消息的额外开销
-        total_tokens += 2
-        
-        return total_tokens
-    
-    def _convert_messages_to_langchain(self, messages: List[Dict]) -> List[BaseMessage]:
-        """
-        将字典格式消息转换为 LangChain 消息对象
-        
-        Args:
-            messages: 消息列表，格式为 [{'role': '...', 'content': '...'}, ...]
-                     支持多模态消息：content 可以是字符串或数组
-                     数组格式：[{'type': 'text', 'text': '...'}, {'type': 'image_url', 'image_url': {'url': '...'}}]
-            
-        Returns:
-            LangChain 消息对象列表
-        """
-        langchain_messages = []
-        for msg in messages:
-            role = msg.get('role', '')
-            content = msg.get('content', '')
-            
-            if role == 'user':
-                # 检查是否为多模态消息（content 是列表）
-                if isinstance(content, list):
-                    # 多模态消息：直接传递 content 数组
-                    langchain_messages.append(HumanMessage(content=content))
-                else:
-                    # 普通文本消息
-                    langchain_messages.append(HumanMessage(content=content))
-            elif role == 'assistant':
-                langchain_messages.append(AIMessage(content=content))
-            elif role == 'system':
-                langchain_messages.append(SystemMessage(content=content))
-            else:
-                # 未知角色，默认作为用户消息
-                if isinstance(content, list):
-                    langchain_messages.append(HumanMessage(content=content))
-                else:
-                    langchain_messages.append(HumanMessage(content=content))
-        
-        return langchain_messages
-    
-    async def stream_chat(
-        self, 
-        messages: List[Dict], 
-        provider_id: str
-    ) -> AsyncGenerator[str, None]:
-        """
-        流式聊天，返回 SSE 格式数据
-        
-        Args:
-            messages: 消息列表，格式为 [{'role': '...', 'content': '...'}, ...]
-            provider_id: 模型提供商ID
-            
-        Yields:
-            SSE 格式的数据流
-        """
-        try:
-            # 获取模型实例
-            llm = self.get_llm(provider_id)
-            
-            # 转换消息格式
-            langchain_messages = self._convert_messages_to_langchain(messages)
-            
-            # 流式调用
-            full_content = ""
-            usage = None
-            
-            async for chunk in llm.astream(langchain_messages):
-                # 提取内容
-                if hasattr(chunk, 'content') and chunk.content:
-                    content = chunk.content
-                    full_content += content
-                    yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
-                
-                # 尝试提取 usage 信息（可能在响应元数据中）
-                if hasattr(chunk, 'response_metadata'):
-                    metadata = chunk.response_metadata
-                    if metadata and 'usage' in metadata:
-                        usage = metadata['usage']
-            
-            # 发送 usage 信息
-            if usage:
-                # 使用从流式响应中获取的真实 usage 信息
-                yield f"data: {json.dumps({'type': 'usage', 'usage': usage})}\n\n"
-            else:
-                # 如果流式响应中没有 usage（某些 API 可能不提供），使用 tiktoken 估算
-                # 注意：不重新调用 API，避免额外的成本和延迟
-                prompt_tokens = self.count_tokens(messages, provider_id)
-                completion_tokens = len(tiktoken.get_encoding("cl100k_base").encode(full_content))
-                usage = {
-                    'prompt_tokens': prompt_tokens,
-                    'completion_tokens': completion_tokens,
-                    'total_tokens': prompt_tokens + completion_tokens
-                }
-                yield f"data: {json.dumps({'type': 'usage', 'usage': usage})}\n\n"
-            
-            # 发送完成信号
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
-            
-        except Exception as e:
-            # 错误处理：区分不同模型的错误
-            error_msg = f"[{provider_id}] 模型调用失败: {str(e)}"
-            yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
-            raise
-    
     def get_provider_config(self, provider_id: str) -> Dict:
         """获取指定 LLM 提供商配置（脱敏 api_key）。
 
@@ -317,17 +137,6 @@ class LLMService:
                     'supports_images': config.get('supports_images', False)
                 })
         return providers
-    
-    def clear_cache(self, provider_id: Optional[str] = None):
-        """清理 LLM 实例缓存（内部维护用）。
-
-        用法:
-        - 参数: `provider_id` — 指定则只清该提供商；省略则清空全部
-        """
-        if provider_id:
-            self._llm_instances.pop(provider_id, None)
-        else:
-            self._llm_instances.clear()
 
 
 LLM_SERVICE_KEY = "llm_service"

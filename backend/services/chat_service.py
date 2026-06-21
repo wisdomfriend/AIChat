@@ -58,24 +58,6 @@ class ChatService:
         finally:
             db.close()
 
-    def save_message(self, session_id, role, content, file_ids=None, metadata=None):
-        db = get_session()
-        try:
-            message = ChatMessage(
-                session_id=session_id,
-                role=role,
-                content=content,
-                file_ids=json.dumps(file_ids) if file_ids else None,
-                metadata_json=json.dumps(metadata, ensure_ascii=False) if metadata else None,
-            )
-            db.add(message)
-            db.commit()
-        except Exception as e:
-            print(f"Save message error: {e}")
-            db.rollback()
-        finally:
-            db.close()
-
     def get_sessions(self, user_id, limit=200):
         ensure_schema()
         db = get_session()
@@ -120,35 +102,6 @@ class ChatService:
         except Exception as e:
             print(f"Get sessions error: {e}")
             return []
-        finally:
-            db.close()
-
-    def get_latest_session_id(self, user_id, prefer_non_empty=True):
-        db = get_session()
-        try:
-            if prefer_non_empty:
-                latest_non_empty = db.query(ChatSession.id).join(
-                    ChatMessage,
-                    ChatMessage.session_id == ChatSession.id
-                ).filter(
-                    ChatSession.user_id == user_id
-                ).group_by(
-                    ChatSession.id
-                ).order_by(
-                    ChatSession.updated_at.desc()
-                ).first()
-                if latest_non_empty:
-                    return latest_non_empty[0]
-
-            latest_session = db.query(ChatSession.id).filter(
-                ChatSession.user_id == user_id
-            ).order_by(
-                ChatSession.updated_at.desc()
-            ).first()
-            return latest_session[0] if latest_session else None
-        except Exception as e:
-            print(f"Get latest session id error: {e}")
-            return None
         finally:
             db.close()
 

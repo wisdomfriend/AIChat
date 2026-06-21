@@ -6,7 +6,6 @@ from .chat_persistence import ChatPersistenceService
 from .chat_service import ChatService
 from .file_service import FileService
 from .llm_service import LLMService, get_llm_service, register_llm_service
-from .memory_store import MySQLChatMessageHistory
 from .stats_service import StatsService
 
 __all__ = [
@@ -21,7 +20,6 @@ __all__ = [
     'ChatPersistenceService',
     'StatsService',
     'FileService',
-    'MySQLChatMessageHistory',
     'LLMService',
     'get_agent_service',
     'get_llm_service',

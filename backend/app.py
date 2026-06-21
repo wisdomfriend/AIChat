@@ -15,7 +15,7 @@ from flask import Flask
 from flasgger import Swagger
 import redis
 
-from backend.config import APP_CONFIG_KEY, DEVELOP, configure_app
+from backend.config import DEVELOP, register_config
 from backend.db import init_db
 from backend.middleware import register_cors, register_error_handlers, register_request_logging
 from backend.routes import register_routes
@@ -27,8 +27,7 @@ def create_app(*, mode: str = DEVELOP):
     """创建并配置 Flask 应用实例。"""
     app = Flask(__name__)
 
-    configure_app(app, mode=mode)
-    config_instance = app.extensions[APP_CONFIG_KEY]
+    config_instance = register_config(app, mode=mode)
 
     try:
         redis_client = redis.Redis(
@@ -62,6 +61,13 @@ def create_app(*, mode: str = DEVELOP):
     except Exception as e:
         logger.error("Postgres checkpointer 初始化失败: %s", e, exc_info=True)
         logger.warning("Agent 对话功能可能不可用，请检查 PostgreSQL 配置")
+
+    from backend.services.agent_service import register_agent_service
+    from backend.services.llm_service import register_llm_service
+
+    llm_service = register_llm_service(app, config_instance)
+    register_agent_service(app, config_instance, llm_service)
+    logger.info("LLMService / AgentService 已初始化")
 
     register_error_handlers(app)
     register_cors(app)

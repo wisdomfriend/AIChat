@@ -7,20 +7,18 @@ from sqlalchemy import func
 from ..config import Config
 from ..db import ensure_schema, get_session
 from ..db import ChatMessage, ChatSession, TokenUsage
-from .agent_service import AgentService
 from .chat_persistence import ChatPersistenceService
 from .checkpointer_service import delete_thread
 from .file_service import FileService
-from .llm_service import LLMService
 
 
 class ChatService:
     """聊天核心业务：会话 CRUD、Agent 流式生成。"""
 
-    def __init__(self):
-        self.config = Config()
-        self.llm_service = LLMService(self.config)
-        self.agent_service = AgentService(self.config)
+    def __init__(self, agent_service, llm_service, config=None):
+        self.config = config or Config()
+        self.llm_service = llm_service
+        self.agent_service = agent_service
 
     def save_token_usage(self, user_id, usage_data, model_name):
         db = get_session()

@@ -329,3 +329,23 @@ class LLMService:
         else:
             self._llm_instances.clear()
 
+
+LLM_SERVICE_KEY = "llm_service"
+
+
+def register_llm_service(app, config) -> LLMService:
+    """在应用工厂中注册进程级 LLMService。"""
+    service = LLMService(config)
+    app.extensions[LLM_SERVICE_KEY] = service
+    return service
+
+
+def get_llm_service() -> LLMService:
+    from flask import current_app
+
+    try:
+        return current_app.extensions[LLM_SERVICE_KEY]
+    except RuntimeError as exc:
+        raise RuntimeError("必须在 Flask 应用上下文中访问 LLMService") from exc
+    except KeyError as exc:
+        raise RuntimeError("LLMService 未初始化，请在 create_app 中调用 register_llm_service") from exc

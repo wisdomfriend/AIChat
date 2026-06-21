@@ -15,7 +15,7 @@ SYSTEM_PROMPT = """你是一个友好、专业且乐于助人的 AI 助手。
 
 你可以使用以下工具：
 - web_search：搜索互联网，获取新闻、价格、天气等实时信息
-- get_time_info：获取当前北京时间
+- get_time_info：获取当前时间
 
 规则：
 1. 需要实时或最新信息时，主动调用 web_search，不要编造
@@ -27,9 +27,9 @@ SYSTEM_PROMPT = """你是一个友好、专业且乐于助人的 AI 助手。
 class AgentService:
     """封装 create_agent 创建、checkpoint bootstrap 与 SSE 流式执行。"""
 
-    def __init__(self, config):
+    def __init__(self, config, llm_service=None):
         self.config = config
-        self.llm_service = LLMService(config)
+        self.llm_service = llm_service or LLMService(config)
         self.search_service = WebSearchService(config)
         self._agents: Dict[str, object] = {}
 
@@ -175,3 +175,24 @@ class AgentService:
             }
             tool_calls_log.append(log_entry)
             yield f"data: {json.dumps({'type': 'tool_end', 'tool': log_entry['name'], 'result_preview': preview}, ensure_ascii=False)}\n\n"
+
+
+AGENT_SERVICE_KEY = "agent_service"
+
+
+def register_agent_service(app, config, llm_service) -> AgentService:
+    """在应用工厂中注册进程级 AgentService。"""
+    service = AgentService(config, llm_service=llm_service)
+    app.extensions[AGENT_SERVICE_KEY] = service
+    return service
+
+
+def get_agent_service() -> AgentService:
+    from flask import current_app
+
+    try:
+        return current_app.extensions[AGENT_SERVICE_KEY]
+    except RuntimeError as exc:
+        raise RuntimeError("必须在 Flask 应用上下文中访问 AgentService") from exc
+    except KeyError as exc:
+        raise RuntimeError("AgentService 未初始化，请在 create_app 中调用 register_agent_service") from exc

@@ -1,7 +1,7 @@
 ﻿"""应用配置与环境变量。
 
 对外入口：
-- `configure_app(app)`  在应用工厂中挂载配置到 Flask 实例
+- `register_config(app)`  在应用工厂中挂载配置到 Flask 实例
 - `get_config()`        在应用上下文中读取 `current_app` 上的配置
 - `Config`              配置对象类型
 """
@@ -48,14 +48,14 @@ __all__ = [
     "PROJECT_ROOT",
     "DEFAULT_LOG_DIR",
     "allowed_origins",
-    "configure_app",
+    "register_config",
     "create_config",
     "get_config",
     "resolve_log_dir",
 ]
 
 
-def configure_app(app: Flask, *, mode: str = DEVELOP) -> Config:
+def register_config(app: Flask, *, mode: str = DEVELOP) -> Config:
     """将配置对象挂载到 Flask 应用（环境变量需在入口脚本中预先 load_dotenv）。"""
     config_instance = create_config(mode=mode)
     app.extensions[APP_CONFIG_KEY] = config_instance
@@ -70,4 +70,4 @@ def get_config() -> Config:
     except RuntimeError as exc:
         raise RuntimeError("必须在 Flask 应用上下文中访问配置") from exc
     except KeyError as exc:
-        raise RuntimeError("应用配置未初始化，请先调用 configure_app(app)") from exc
+        raise RuntimeError("应用配置未初始化，请先调用 register_config(app)") from exc

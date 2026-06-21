@@ -29,10 +29,10 @@ import os
 
 from flask import Blueprint, Response, jsonify, request, send_file, stream_with_context
 
-from ..config import Config
+from ..config import get_config
 from ..db import get_session
 from ..db import UploadedFile
-from ..services import ChatService, FileService, LLMService
+from ..services import ChatService, FileService, get_agent_service, get_llm_service
 from ..utils import get_current_user, rate_limit_chat, serialize_user
 from ..services.auth_token import get_bearer_token
 
@@ -188,7 +188,11 @@ def api_chat():
                 status=400
             )
         
-        chat_service = ChatService()
+        chat_service = ChatService(
+            agent_service=get_agent_service(),
+            llm_service=get_llm_service(),
+            config=get_config(),
+        )
         
         def generate():
             """生成SSE流"""
@@ -299,7 +303,11 @@ def get_sessions():
         return jsonify({'error': '未登录'}), 401
     
     try:
-        chat_service = ChatService()
+        chat_service = ChatService(
+            agent_service=get_agent_service(),
+            llm_service=get_llm_service(),
+            config=get_config(),
+        )
         sessions = chat_service.get_sessions(user['id'])
         return jsonify({'sessions': sessions})
     except Exception as e:
@@ -408,7 +416,11 @@ def get_session_messages(session_id):
         return jsonify({'error': '未登录'}), 401
     
     try:
-        chat_service = ChatService()
+        chat_service = ChatService(
+            agent_service=get_agent_service(),
+            llm_service=get_llm_service(),
+            config=get_config(),
+        )
         # 包含文件信息
         messages = chat_service.get_session_messages(session_id, user['id'], include_files=True)
         
@@ -433,7 +445,11 @@ def update_session(session_id):
         return jsonify({'error': '缺少 pinned 参数'}), 400
 
     try:
-        chat_service = ChatService()
+        chat_service = ChatService(
+            agent_service=get_agent_service(),
+            llm_service=get_llm_service(),
+            config=get_config(),
+        )
         ok = chat_service.set_session_pinned(session_id, user['id'], bool(data['pinned']))
         if not ok:
             return jsonify({'error': '会话不存在或无权限'}), 404
@@ -451,7 +467,11 @@ def delete_session_route(session_id):
         return jsonify({'error': '未登录'}), 401
 
     try:
-        chat_service = ChatService()
+        chat_service = ChatService(
+            agent_service=get_agent_service(),
+            llm_service=get_llm_service(),
+            config=get_config(),
+        )
         ok = chat_service.delete_session(session_id, user['id'])
         if not ok:
             return jsonify({'error': '会话不存在或无权限'}), 404
@@ -1010,10 +1030,9 @@ def get_llm_providers():
         return jsonify({'error': '未登录'}), 401
     
     try:
-        config = Config()
-        llm_service = LLMService(config)
-        providers = llm_service.get_available_providers()
-        
+        config = get_config()
+        providers = get_llm_service().get_available_providers()
+
         return jsonify({
             'providers': providers,
             'default': config.LLM_DEFAULT_PROVIDER

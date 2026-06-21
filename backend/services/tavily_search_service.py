@@ -5,8 +5,6 @@
 """
 from typing import Any, Dict, List
 
-from langchain_tavily import TavilySearch
-
 from ..config import Config
 
 
@@ -15,21 +13,37 @@ class TavilySearchService:
 
     def __init__(self, config: Config = None):
         self.config = config or Config()
-        self._search_tool = TavilySearch(
-            max_results=self.config.TAVILY_SEARCH_MAX_RESULTS,
-            tavily_api_key=self.config.TAVILY_API_KEY,
-        )
+        self._search_tool = None
+        if self.config.TAVILY_API_KEY:
+            self._search_tool = self._create_search_tool(
+                self.config.TAVILY_SEARCH_MAX_RESULTS,
+                self.config.TAVILY_API_KEY,
+            )
+
+    @staticmethod
+    def _create_search_tool(max_results: int, api_key: str):
+        from langchain_tavily import TavilySearch
+
+        return TavilySearch(max_results=max_results, tavily_api_key=api_key)
+
+    def _get_search_tool(self, num_results: int = None):
+        if not self.config.TAVILY_API_KEY:
+            return None
+        if num_results is not None and num_results != self.config.TAVILY_SEARCH_MAX_RESULTS:
+            return self._create_search_tool(num_results, self.config.TAVILY_API_KEY)
+        if self._search_tool is None:
+            self._search_tool = self._create_search_tool(
+                self.config.TAVILY_SEARCH_MAX_RESULTS,
+                self.config.TAVILY_API_KEY,
+            )
+        return self._search_tool
 
     def search_results(self, query: str, num_results: int = None) -> List[Dict]:
         """执行 Tavily 搜索并返回结构化结果列表。"""
         try:
-            if num_results is not None and num_results != self.config.TAVILY_SEARCH_MAX_RESULTS:
-                search_tool = TavilySearch(
-                    max_results=num_results,
-                    tavily_api_key=self.config.TAVILY_API_KEY,
-                )
-            else:
-                search_tool = self._search_tool
+            search_tool = self._get_search_tool(num_results)
+            if search_tool is None:
+                return []
 
             data = search_tool.invoke({"query": query})
             raw_results = self._extract_results(data)

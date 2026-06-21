@@ -5,7 +5,7 @@
 2) 初始化 Redis 连接（限流使用；失败则限流降级放行）
 3) `register_request_logging()`  注册请求日志
 4) `init_db()`  确保数据库连接可用
-5) `register_error_handlers()` / `register_cors()`  统一异常与跨域
+5) `register_error_handlers()`  统一异常处理
 6) 注册全部 API 路由
 7) 初始化 Swagger API 文档（/api-docs）
 """
@@ -17,7 +17,7 @@ import redis
 
 from backend.config import DEVELOP, register_config
 from backend.db import init_db
-from backend.middleware import register_cors, register_error_handlers, register_request_logging
+from backend.middleware import register_error_handlers, register_request_logging
 from backend.routes import register_routes
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,6 @@ def create_app(*, mode: str = DEVELOP):
     logger.info("LLMService / AgentService 已初始化")
 
     register_error_handlers(app)
-    register_cors(app)
 
     register_routes(app)
 

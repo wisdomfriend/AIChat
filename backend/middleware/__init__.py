@@ -1,5 +1,4 @@
 """中间件层统一导出。"""
-from .cors import register_cors
 from .errors import (
     AppError,
     BadRequestError,
@@ -14,7 +13,6 @@ __all__ = [
     "BadRequestError",
     "NotFoundError",
     "UnauthorizedError",
-    "register_cors",
     "register_error_handlers",
     "register_request_logging",
 ]

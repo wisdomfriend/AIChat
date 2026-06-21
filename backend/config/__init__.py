@@ -13,7 +13,6 @@ from backend.config.factory import (
     Config,
     DevelopmentConfig,
     ProductionConfig,
-    allowed_origins,
     create_config,
     resolve_log_dir,
 )
@@ -47,7 +46,6 @@ __all__ = [
     "ProductionConfig",
     "PROJECT_ROOT",
     "DEFAULT_LOG_DIR",
-    "allowed_origins",
     "register_config",
     "create_config",
     "get_config",

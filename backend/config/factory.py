@@ -19,15 +19,6 @@ DEVELOP = "development"
 PRODUCT = "production"
 
 
-def allowed_origins() -> list[str]:
-    """读取 CORS 允许的前端来源列表。"""
-    configured = os.environ.get(
-        "CORS_ALLOW_ORIGINS",
-        "http://127.0.0.1:5173,http://localhost:5173",
-    )
-    return [item.strip() for item in configured.split(",") if item.strip()]
-
-
 def resolve_log_dir() -> Path:
     """解析应用日志存储目录。"""
     env_dir = os.environ.get("LOG_DIR", "").strip()

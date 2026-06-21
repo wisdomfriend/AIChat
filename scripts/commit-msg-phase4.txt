@@ -1,0 +1,4 @@
+feat: 阶段4 Dashboard/Admin API 化与政企风格 UI
+
+新增 /api/stats 统计接口；React Dashboard/Admin 页与 RequireAdmin；
+统一 Ant Design 政企蓝主题，聊天与登录页同步改版。

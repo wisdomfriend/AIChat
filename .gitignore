@@ -102,6 +102,7 @@ celerybeat.pid
 .env
 backend/.env
 backend/.env.develop
+backend/.env.product
 .venv
 env/
 venv/
@@ -188,6 +189,10 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+backend/.env
+backend/.env.develop
+backend/.env.product
+
 
 # .idea环境文件
 .idea/

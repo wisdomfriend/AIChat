@@ -9,11 +9,13 @@
    - `verify_user_token()`  校验签名、时效并返回 payload
 3) 路由保护
    - `login_required`  API 登录鉴权装饰器
+   - `sse_login_required`  SSE 流式 API 登录鉴权装饰器
    - `admin_required`  API 管理员鉴权装饰器
 """
+import json
 from functools import wraps
 
-from flask import current_app, request
+from flask import Response, current_app, request
 from itsdangerous import BadSignature, BadTimeSignature, URLSafeTimedSerializer
 
 from ..middleware.errors import UnauthorizedError
@@ -35,7 +37,7 @@ def create_user_token(user_id: int, username: str, is_admin: bool = False) -> st
     """为已通过验证的用户签发 token。
 
     用法:
-    - 调用方: `routes/auth_api.login`
+    - 调用方: `routes/auth.login`
     - 参数: `user_id`、`username`、`is_admin`
     - 返回值: URL-safe 签名字符串
     - Payload: `{ "uid", "u", "admin" }`
@@ -91,6 +93,16 @@ def get_bearer_token() -> str:
     return auth.split(" ", 1)[1].strip()
 
 
+def sse_error_response(message: str, status: int = 400) -> Response:
+    """返回 SSE 格式的错误响应。"""
+    payload = json.dumps({"type": "error", "message": message}, ensure_ascii=False)
+    return Response(
+        f"data: {payload}\n\n",
+        mimetype="text/event-stream",
+        status=status,
+    )
+
+
 def login_required(func):
     """API 登录鉴权装饰器。
 
@@ -106,6 +118,26 @@ def login_required(func):
 
         if not get_current_user():
             raise UnauthorizedError("未登录或登录已过期")
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def sse_login_required(func):
+    """SSE 流式 API 登录鉴权装饰器。
+
+    用法:
+    - 装饰对象: 返回 text/event-stream 的需登录路由
+    - 请求头: `Authorization: Bearer <token>`
+    - 失败: 返回 SSE 格式 401（而非 JSON）
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        from ..utils import get_current_user
+
+        if not get_current_user():
+            return sse_error_response("未登录或登录已过期", status=401)
         return func(*args, **kwargs)
 
     return wrapper

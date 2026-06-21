@@ -7,18 +7,21 @@
 2) 会话信息
    - GET  `/api/auth/me`        获取当前登录用户（需 Bearer token）
    - POST `/api/auth/logout`    登出（需 Bearer token；前端清除 token 即可）
+3) 调试
+   - GET  `/api/test-auth`      调试 Bearer 认证状态（开发用）
 """
 from flask import Blueprint, jsonify, request
 
 from ..middleware.errors import BadRequestError
 from ..services import AuthService
-from ..services.auth_token import create_user_token, login_required
+from ..services.auth_token import create_user_token, get_bearer_token, login_required
 from ..utils import get_current_user, serialize_user
 
-auth_api_bp = Blueprint("auth_api", __name__)
+auth_bp = Blueprint("auth", __name__)
+auth_debug_bp = Blueprint("auth_debug", __name__)
 
 
-@auth_api_bp.route("/login", methods=["POST"])
+@auth_bp.route("/login", methods=["POST"])
 def login():
     """用户登录，返回 Bearer token。
 
@@ -120,7 +123,7 @@ def login():
     return jsonify({"token": token, "user": serialize_user(user)})
 
 
-@auth_api_bp.route("/register", methods=["POST"])
+@auth_bp.route("/register", methods=["POST"])
 def register():
     """用户注册。
 
@@ -217,7 +220,7 @@ def register():
     )
 
 
-@auth_api_bp.route("/me", methods=["GET"])
+@auth_bp.route("/me", methods=["GET"])
 @login_required
 def me():
     """获取当前登录用户信息。
@@ -284,7 +287,7 @@ def me():
     return jsonify({"user": serialize_user(user)})
 
 
-@auth_api_bp.route("/logout", methods=["POST"])
+@auth_bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
     """用户登出。
@@ -331,3 +334,32 @@ def logout():
               example: "未登录或登录已过期"
     """
     return jsonify({"message": "已登出"})
+
+
+@auth_debug_bp.route("/test-auth", methods=["GET"])
+def test_auth():
+    """调试当前 Bearer 认证状态（开发用）。
+
+    用法:
+    - 方法/路径: `GET /api/test-auth`
+    - 认证: 可选 Bearer Token
+    - 成功响应: `{ "authenticated": bool, "user": {...}, "has_bearer_token": bool }`
+    ---
+    tags:
+      - 认证
+    summary: 测试当前用户的 Bearer 认证状态
+    description: 用于调试，检查 Authorization 请求头中的 Bearer Token 是否有效
+    produces:
+      - application/json
+    responses:
+      200:
+        description: 认证状态
+    """
+    user = get_current_user()
+    token = get_bearer_token()
+    return jsonify({
+        "authenticated": user is not None,
+        "user": serialize_user(user),
+        "has_bearer_token": bool(token),
+        "token_preview": f"{token[:16]}..." if token and len(token) > 16 else (token or None),
+    })

@@ -24,7 +24,7 @@ class AuthService:
         用法:
         - 调用方: `routes/auth.login`
         - 参数: `username`、`password`
-        - 成功: `{ "success": true, "user": { id, username, last_login } }`
+        - 成功: `{ "success": true, "user": { id, username, last_ln ogi} }`
         - 失败: `{ "success": false, "message": "..." }`
         - 兼容: 支持 werkzeug 哈希与旧版明文密码（自动升级哈希）
         """

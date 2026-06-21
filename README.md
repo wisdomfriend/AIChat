@@ -198,6 +198,8 @@ docker-compose restart nginx
 - **运行端口**: 5000（容器内）
 - **WSGI 服务器**: Gunicorn + gevent（SSE 流式）
 - **数据库**: MySQL（通过环境变量配置）
+- **表结构**: `backend/db/models.py`（SQLAlchemy ORM）
+- **建表**: 进程首次连接数据库时执行 `create_all()`（幂等，仅创建缺失的表）
 - **认证**: Bearer Token（`itsdangerous` 签名，`AUTH_TOKEN_SECRET`）
 - **Redis**: 仅用于聊天 API 限流（`rate_limit:chat:*` 键）
 
@@ -211,7 +213,7 @@ docker-compose restart nginx
 
 - **版本**: MySQL 8.0
 - **数据持久化**: Docker Volume
-- **初始化脚本**: `mysql/init.sql`
+- **Schema 来源**: `backend/db/models.py`，由 backend 启动时 `create_all()` 自动建表（无 `init.sql`、无种子数据）
 
 ### Redis 配置
 

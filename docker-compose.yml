@@ -62,7 +62,6 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./mysql:/docker-entrypoint-initdb.d
     restart: unless-stopped
     networks:
       - nginx-network

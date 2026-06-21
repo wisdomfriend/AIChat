@@ -5,7 +5,7 @@ import traceback
 from sqlalchemy import func
 
 from ..config import Config
-from ..db import ensure_schema, get_session
+from ..db import get_session
 from ..db import ChatMessage, ChatSession, TokenUsage
 from .chat_persistence import ChatPersistenceService
 from .checkpointer_service import delete_thread
@@ -59,7 +59,6 @@ class ChatService:
             db.close()
 
     def get_sessions(self, user_id, limit=200):
-        ensure_schema()
         db = get_session()
         try:
             try:
@@ -174,7 +173,6 @@ class ChatService:
             db.close()
 
     def set_session_pinned(self, session_id, user_id, pinned=True):
-        ensure_schema()
         db = get_session()
         try:
             session = db.query(ChatSession).filter(

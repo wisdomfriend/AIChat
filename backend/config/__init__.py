@@ -1,9 +1,11 @@
-﻿"""应用配置与环境变量。
+"""应用配置与环境变量。
 
 对外入口：
 - `register_config(app)`  在应用工厂中挂载配置到 Flask 实例
 - `get_config()`        在应用上下文中读取 `current_app` 上的配置
 - `Config`              配置对象类型
+- `DEVELOP` / `PRODUCT` 运行模式常量
+- `resolve_log_dir()`   解析日志目录
 """
 from flask import Flask, current_app
 
@@ -11,44 +13,18 @@ from backend.config.factory import (
     DEVELOP,
     PRODUCT,
     Config,
-    DevelopmentConfig,
-    ProductionConfig,
     create_config,
     resolve_log_dir,
-)
-from backend.config.settings import (
-    ALLOWED_EXTENSIONS,
-    DEEPSEEK_API_URL,
-    DEFAULT_LOG_DIR,
-    BACKEND_DIR,
-    IMAGE_EXTENSIONS,
-    MAX_FILE_SIZE,
-    MAX_FILES_PER_REQUEST,
-    MAX_TEXT_LENGTH,
-    PROJECT_ROOT,
 )
 
 APP_CONFIG_KEY = "app_config"
 
 __all__ = [
-    "APP_CONFIG_KEY",
-    "ALLOWED_EXTENSIONS",
     "Config",
-    "DEEPSEEK_API_URL",
     "DEVELOP",
-    "DevelopmentConfig",
-    "BACKEND_DIR",
-    "IMAGE_EXTENSIONS",
-    "MAX_FILE_SIZE",
-    "MAX_FILES_PER_REQUEST",
-    "MAX_TEXT_LENGTH",
     "PRODUCT",
-    "ProductionConfig",
-    "PROJECT_ROOT",
-    "DEFAULT_LOG_DIR",
-    "register_config",
-    "create_config",
     "get_config",
+    "register_config",
     "resolve_log_dir",
 ]
 

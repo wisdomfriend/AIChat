@@ -62,12 +62,25 @@ def create_session_local(engine):
     return sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+def _create_tables(engine):
+    """根据 ORM 模型创建缺失的数据库表（幂等）。
+
+    仅在当前进程首次 init_db() 时调用一次（见 _engine 守卫），
+    不会在每次 HTTP 请求时重复执行。create_all(checkfirst=True) 会先
+    检查表是否已存在，已有表时几乎无额外开销。
+    """
+    import backend.db.models  # noqa: F401 — 注册全部模型到 Base.metadata
+
+    from backend.db.models import Base
+
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+    logger.info("数据库表结构已就绪")
+
+
 def init_db():
     """初始化全局 Engine 与 Session 工厂，带重试机制。"""
     global _engine, _SessionLocal
     if _engine is None:
-        from backend.db.schema import ensure_schema
-
         max_retries = 5
         retry_delay = 3
 
@@ -77,7 +90,7 @@ def init_db():
                 with _engine.connect() as conn:
                     conn.execute(text("SELECT 1"))
                 _SessionLocal = create_session_local(_engine)
-                ensure_schema()
+                _create_tables(_engine)
                 return _engine, _SessionLocal
             except (OperationalError, DisconnectionError) as e:
                 if attempt < max_retries - 1:

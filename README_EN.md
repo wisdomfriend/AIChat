@@ -190,6 +190,8 @@ Main configuration items:
 - **Running Port**: 5000 (inside container)
 - **WSGI Server**: Gunicorn + gevent (SSE streaming)
 - **Database**: MySQL (via environment variables)
+- **Schema**: `backend/db/models.py` (SQLAlchemy ORM)
+- **Table creation**: `create_all()` on first DB connection per process (idempotent; creates missing tables only)
 - **Authentication**: Bearer Token (`itsdangerous`, `AUTH_TOKEN_SECRET`)
 - **Redis**: Chat API rate limiting only (`rate_limit:chat:*` keys)
 
@@ -197,7 +199,7 @@ Main configuration items:
 
 - **Version**: MySQL 8.0
 - **Data Persistence**: Docker Volume
-- **Initialization Script**: `mysql/init.sql`
+- **Schema source**: `backend/db/models.py`; tables are created by backend via `create_all()` (no `init.sql`, no seed data)
 
 ### Redis Configuration
 

@@ -21,7 +21,7 @@ export default function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/bg-preview" element={<BgPreview />} />
         <Route path="/chat" element={<Chat />} />
-        <Route path="/knowledge" element={<KnowledgeBase />} />
+        <Route path="/knowledge/*" element={<KnowledgeBase />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Navigate to="/" replace />} />

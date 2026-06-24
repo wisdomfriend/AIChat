@@ -45,6 +45,10 @@ class Config:
         self.POSTGRES_USER = os.environ.get("POSTGRES_USER", "langgraph")
         self.POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "langgraph")
         self.POSTGRES_DB = os.environ.get("POSTGRES_DB", "langgraph")
+        # 单进程连接池；生产多 worker 时总连接 ≈ workers × POSTGRES_POOL_MAX_SIZE
+        self.POSTGRES_POOL_MIN_SIZE = int(os.environ.get("POSTGRES_POOL_MIN_SIZE", "10"))
+        self.POSTGRES_POOL_MAX_SIZE = int(os.environ.get("POSTGRES_POOL_MAX_SIZE", "15"))
+        self.POSTGRES_POOL_TIMEOUT = int(os.environ.get("POSTGRES_POOL_TIMEOUT", "60"))
 
         self.AGENT_SUMMARY_TRIGGER_FRACTION = float(os.environ.get("AGENT_SUMMARY_TRIGGER_FRACTION", "0.8"))
         self.AGENT_SUMMARY_KEEP_MESSAGES = int(os.environ.get("AGENT_SUMMARY_KEEP_MESSAGES", "20"))

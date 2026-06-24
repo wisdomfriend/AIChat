@@ -2,7 +2,7 @@
 
 职责总览：
 1) 连接与表结构
-   - `_ensure_pool()`       进程级连接池（含健康检查与重连）
+   - `get_postgres_pool()`  进程级共享连接池（与 Checkpointer 共用）
    - `_ensure_schema()`     建表、索引及 embedding 维度迁移
 2) 写入与删除
    - `insert_chunks()`           批量写入文档片段及向量
@@ -25,7 +25,7 @@
 - TODO: BM25 全文索引同库（tsvector）或外接 ES，避免 `fetch_chunks_for_kb` 全量拉取
 - TODO: 向量索引参数可配置（HNSW m/ef、IVFFlat lists）并按数据量自动选择
 - TODO: 软删除 chunk，支持文档版本回溯
-- 局限: 类级单例连接池，多 worker 进程各自持池（符合预期，但需注意连接总数）
+- 局限: 进程级共享连接池（与 Checkpointer 共用），多 worker 各自持池（需注意连接总数）
 - 局限: 维度迁移时 `USING NULL` 清空已有向量，需触发文档重新入库
 - 局限: 远程 PG 空闲断连依赖 `check` + `_run_pg` 重试，极端情况仍可能失败
 """
@@ -34,7 +34,8 @@ import logging
 from typing import Callable, Dict, List, Optional, TypeVar
 
 from psycopg import OperationalError
-from psycopg_pool import ConnectionPool
+
+from backend.db.postgres_pool import get_postgres_pool, log_pool_stats
 
 logger = logging.getLogger(__name__)
 
@@ -44,26 +45,12 @@ T = TypeVar("T")
 class VectorStore:
     """知识库向量与 chunk 的 PostgreSQL 存储层。"""
 
-    _pool: Optional[ConnectionPool] = None
     _schema_dimension: Optional[int] = None
 
     def __init__(self, config):
         self.config = config
-        self._ensure_pool()
+        self._pool = get_postgres_pool(config)
         self._ensure_schema()
-
-    def _ensure_pool(self) -> None:
-        """初始化进程级 PostgreSQL 连接池（单例）。"""
-        if VectorStore._pool is None:
-            VectorStore._pool = ConnectionPool(
-                conninfo=self.config.POSTGRES_URI,
-                max_size=10,
-                open=True,
-                check=ConnectionPool.check_connection,
-                max_idle=300,
-                reconnect_timeout=300,
-                kwargs={"connect_timeout": 10},
-            )
 
     def _ensure_schema(self) -> None:
         """建表、 btree 索引、向量索引；维度变更时自动迁移。
@@ -257,6 +244,7 @@ class VectorStore:
         knowledge_base_ids: List[int],
         query_embedding: List[float],
         limit: int,
+        enabled_document_ids: Optional[List[int]] = None,
     ) -> List[Dict]:
         """按余弦距离检索与 query 向量最相近的 chunk。
 
@@ -267,11 +255,26 @@ class VectorStore:
         """
         if not knowledge_base_ids:
             return []
+        if enabled_document_ids is not None and not enabled_document_ids:
+            return []
 
         def _search(conn):
             with conn.cursor() as cur:
+                doc_filter = ""
+                params: list = [
+                    self._vector_literal(query_embedding),
+                    user_id,
+                    knowledge_base_ids,
+                ]
+                if enabled_document_ids is not None:
+                    doc_filter = " AND c.document_id = ANY(%s)"
+                    params.append(enabled_document_ids)
+                params.extend([
+                    self._vector_literal(query_embedding),
+                    limit,
+                ])
                 cur.execute(
-                    """
+                    f"""
                     SELECT
                         c.id,
                         c.document_id,
@@ -284,34 +287,24 @@ class VectorStore:
                     WHERE c.user_id = %s
                       AND c.knowledge_base_id = ANY(%s)
                       AND c.embedding IS NOT NULL
+                      {doc_filter}
                     ORDER BY c.embedding <=> %s::vector
                     LIMIT %s
                     """,
-                    (
-                        self._vector_literal(query_embedding),
-                        user_id,
-                        knowledge_base_ids,
-                        self._vector_literal(query_embedding),
-                        limit,
-                    ),
+                    params,
                 )
                 return cur.fetchall()
 
         rows = self._run_pg(_search)
         return [self._row_to_hit(row, source="vector") for row in rows]
 
-    def fetch_chunks_for_kb(
+    def fetch_chunks_for_document(
         self,
         *,
         user_id: int,
-        knowledge_base_ids: List[int],
+        document_id: int,
     ) -> List[Dict]:
-        """拉取知识库下全部 chunk 正文（供 BM25 内存检索）。
-
-        用法:
-        - 调用方: `HybridSearchEngine.search()` → `Bm25Retriever.search()`
-        - 注意: 文档量大时 IO 与内存压力高，见 bm25_retriever TODO
-        """
+        """拉取指定文档的全部 chunk（按 chunk_index 排序）。"""
         def _fetch(conn):
             with conn.cursor() as cur:
                 cur.execute(
@@ -324,11 +317,119 @@ class VectorStore:
                         c.content,
                         c.metadata
                     FROM kb_document_chunks c
+                    WHERE c.user_id = %s AND c.document_id = %s
+                    ORDER BY c.chunk_index
+                    """,
+                    (user_id, document_id),
+                )
+                return cur.fetchall()
+
+        rows = self._run_pg(_fetch)
+        return [self._row_to_hit(row[:6], source="document") for row in rows]
+
+    def update_chunk_content(
+        self,
+        *,
+        chunk_id: int,
+        user_id: int,
+        document_id: int,
+        content: str,
+    ) -> bool:
+        """更新切片正文并清空向量（需重新 embedding）。"""
+        text = (content or "").strip()
+        if not text:
+            raise ValueError("切片内容不能为空")
+
+        def _update(conn):
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE kb_document_chunks
+                    SET content = %s, embedding = NULL
+                    WHERE id = %s AND user_id = %s AND document_id = %s
+                    RETURNING id
+                    """,
+                    (text, chunk_id, user_id, document_id),
+                )
+                updated = cur.fetchone() is not None
+            conn.commit()
+            return updated
+
+        return self._run_pg(_update)
+
+    def update_chunk_embeddings(
+        self,
+        *,
+        user_id: int,
+        document_id: int,
+        chunk_embeddings: List[tuple],
+    ) -> int:
+        """批量更新文档切片的 embedding 向量。"""
+        if not chunk_embeddings:
+            return 0
+
+        def _update(conn):
+            count = 0
+            with conn.cursor() as cur:
+                for chunk_id, embedding in chunk_embeddings:
+                    cur.execute(
+                        """
+                        UPDATE kb_document_chunks
+                        SET embedding = %s::vector
+                        WHERE id = %s AND user_id = %s AND document_id = %s
+                        """,
+                        (
+                            self._vector_literal(embedding),
+                            chunk_id,
+                            user_id,
+                            document_id,
+                        ),
+                    )
+                    count += cur.rowcount
+            conn.commit()
+            return count
+
+        return self._run_pg(_update)
+
+    def fetch_chunks_for_kb(
+        self,
+        *,
+        user_id: int,
+        knowledge_base_ids: List[int],
+        enabled_document_ids: Optional[List[int]] = None,
+    ) -> List[Dict]:
+        """拉取知识库下全部 chunk 正文（供 BM25 内存检索）。
+
+        用法:
+        - 调用方: `HybridSearchEngine.search()` → `Bm25Retriever.search()`
+        - 注意: 文档量大时 IO 与内存压力高，见 bm25_retriever TODO
+        """
+        if enabled_document_ids is not None and not enabled_document_ids:
+            return []
+
+        def _fetch(conn):
+            with conn.cursor() as cur:
+                doc_filter = ""
+                params: list = [user_id, knowledge_base_ids]
+                if enabled_document_ids is not None:
+                    doc_filter = " AND c.document_id = ANY(%s)"
+                    params.append(enabled_document_ids)
+                cur.execute(
+                    f"""
+                    SELECT
+                        c.id,
+                        c.document_id,
+                        c.knowledge_base_id,
+                        c.chunk_index,
+                        c.content,
+                        c.metadata
+                    FROM kb_document_chunks c
                     WHERE c.user_id = %s
                       AND c.knowledge_base_id = ANY(%s)
+                      {doc_filter}
                     ORDER BY c.document_id, c.chunk_index
                     """,
-                    (user_id, knowledge_base_ids),
+                    params,
                 )
                 return cur.fetchall()
 
@@ -345,15 +446,15 @@ class VectorStore:
         last_error: Optional[Exception] = None
         for attempt in range(retries + 1):
             try:
-                with VectorStore._pool.connection() as conn:
+                with self._pool.connection() as conn:
                     return operation(conn)
             except OperationalError as exc:
                 last_error = exc
-                logger.warning(
-                    "PostgreSQL 连接异常 (attempt %s/%s): %s",
-                    attempt + 1,
-                    retries + 1,
-                    exc,
+                log_pool_stats(
+                    self._pool,
+                    attempt=attempt + 1,
+                    max_attempts=retries + 1,
+                    error=exc,
                 )
         raise last_error
 

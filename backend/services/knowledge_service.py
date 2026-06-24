@@ -235,6 +235,260 @@ class KnowledgeService:
         finally:
             db.close()
 
+    def list_document_chunks(self, kb_id: int, doc_id: int, user_id: int) -> Optional[List[Dict]]:
+        db = get_session()
+        try:
+            kb = self._get_owned_kb(db, kb_id, user_id)
+            if not kb:
+                return None
+            doc = (
+                db.query(KbDocument)
+                .filter(
+                    KbDocument.id == doc_id,
+                    KbDocument.knowledge_base_id == kb_id,
+                    KbDocument.user_id == user_id,
+                )
+                .first()
+            )
+            if not doc:
+                return None
+
+            chunks = self.vector_store.fetch_chunks_for_document(
+                user_id=user_id,
+                document_id=doc_id,
+            )
+            return [
+                {
+                    "id": item.get("id"),
+                    "chunk_index": item.get("chunk_index"),
+                    "content": item.get("content"),
+                }
+                for item in chunks
+            ]
+        finally:
+            db.close()
+
+    def update_document_chunk(
+        self,
+        kb_id: int,
+        doc_id: int,
+        chunk_id: int,
+        user_id: int,
+        content: str,
+    ) -> Optional[Dict]:
+        db = get_session()
+        try:
+            kb = self._get_owned_kb(db, kb_id, user_id)
+            if not kb:
+                return None
+            doc = (
+                db.query(KbDocument)
+                .filter(
+                    KbDocument.id == doc_id,
+                    KbDocument.knowledge_base_id == kb_id,
+                    KbDocument.user_id == user_id,
+                )
+                .first()
+            )
+            if not doc:
+                return None
+
+            updated = self.vector_store.update_chunk_content(
+                chunk_id=chunk_id,
+                user_id=user_id,
+                document_id=doc_id,
+                content=content,
+            )
+            if not updated:
+                return None
+
+            doc.status = "needs_reembedding"
+            doc.error_message = None
+            doc.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(doc)
+            return {
+                "chunk": {"id": chunk_id, "content": content.strip()},
+                "document": self._serialize_document(doc),
+            }
+        except ValueError:
+            raise
+        except Exception as exc:
+            db.rollback()
+            raise ValueError(str(exc)) from exc
+        finally:
+            db.close()
+
+    def reembed_document(self, kb_id: int, doc_id: int, user_id: int) -> Optional[Dict]:
+        db = get_session()
+        try:
+            kb = self._get_owned_kb(db, kb_id, user_id)
+            if not kb:
+                return None
+            doc = (
+                db.query(KbDocument)
+                .filter(
+                    KbDocument.id == doc_id,
+                    KbDocument.knowledge_base_id == kb_id,
+                    KbDocument.user_id == user_id,
+                )
+                .first()
+            )
+            if not doc:
+                return None
+
+            chunks = self.vector_store.fetch_chunks_for_document(
+                user_id=user_id,
+                document_id=doc_id,
+            )
+            if not chunks:
+                raise ValueError("没有可向量化的切片")
+
+            doc.status = "processing"
+            db.commit()
+
+            texts = [item["content"] for item in chunks]
+            embeddings = self.embedding_client.embed_texts(texts)
+            if len(embeddings) != len(chunks):
+                raise ValueError("向量化结果数量不匹配")
+
+            self.vector_store.update_chunk_embeddings(
+                user_id=user_id,
+                document_id=doc_id,
+                chunk_embeddings=[
+                    (item["id"], embedding)
+                    for item, embedding in zip(chunks, embeddings)
+                ],
+            )
+
+            doc.status = "ready"
+            doc.chunk_count = len(chunks)
+            doc.error_message = None
+            doc.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(doc)
+            return self._serialize_document(doc)
+        except Exception as exc:
+            db.rollback()
+            doc = (
+                db.query(KbDocument)
+                .filter(
+                    KbDocument.id == doc_id,
+                    KbDocument.knowledge_base_id == kb_id,
+                    KbDocument.user_id == user_id,
+                )
+                .first()
+            )
+            if doc:
+                doc.status = "needs_reembedding"
+                doc.error_message = str(exc)[:500]
+                db.commit()
+            raise ValueError(str(exc)) from exc
+        finally:
+            db.close()
+
+    def get_document_content(self, kb_id: int, doc_id: int, user_id: int) -> Optional[Dict]:
+        db = get_session()
+        try:
+            kb = self._get_owned_kb(db, kb_id, user_id)
+            if not kb:
+                return None
+            doc = (
+                db.query(KbDocument)
+                .filter(
+                    KbDocument.id == doc_id,
+                    KbDocument.knowledge_base_id == kb_id,
+                    KbDocument.user_id == user_id,
+                )
+                .first()
+            )
+            if not doc:
+                return None
+
+            text, status = self.extractor.extract(doc.file_path, doc.file_extension)
+            return {
+                "document": self._serialize_document(doc),
+                "content": text if status == "ready" else "",
+            }
+        finally:
+            db.close()
+
+    def get_enabled_document_ids(
+        self, user_id: int, knowledge_base_ids: List[int]
+    ) -> List[int]:
+        db = get_session()
+        try:
+            rows = (
+                db.query(KbDocument.id)
+                .filter(
+                    KbDocument.user_id == user_id,
+                    KbDocument.knowledge_base_id.in_(knowledge_base_ids),
+                    KbDocument.status == "ready",
+                    KbDocument.is_enabled.is_(True),
+                )
+                .all()
+            )
+            return [row[0] for row in rows]
+        finally:
+            db.close()
+
+    def update_documents_enabled(
+        self,
+        kb_id: int,
+        user_id: int,
+        document_ids: List[int],
+        is_enabled: bool,
+    ) -> int:
+        if not document_ids:
+            return 0
+        db = get_session()
+        try:
+            kb = self._get_owned_kb(db, kb_id, user_id)
+            if not kb:
+                raise ValueError("知识库不存在或无权限")
+            updated = (
+                db.query(KbDocument)
+                .filter(
+                    KbDocument.knowledge_base_id == kb_id,
+                    KbDocument.user_id == user_id,
+                    KbDocument.id.in_(document_ids),
+                )
+                .update({KbDocument.is_enabled: is_enabled}, synchronize_session=False)
+            )
+            db.commit()
+            return updated
+        except ValueError:
+            raise
+        except Exception as exc:
+            db.rollback()
+            raise ValueError(str(exc)) from exc
+        finally:
+            db.close()
+
+    def get_document_download(self, kb_id: int, doc_id: int, user_id: int) -> Optional[Dict]:
+        db = get_session()
+        try:
+            kb = self._get_owned_kb(db, kb_id, user_id)
+            if not kb:
+                return None
+            doc = (
+                db.query(KbDocument)
+                .filter(
+                    KbDocument.id == doc_id,
+                    KbDocument.knowledge_base_id == kb_id,
+                    KbDocument.user_id == user_id,
+                )
+                .first()
+            )
+            if not doc or not doc.file_path or not os.path.exists(doc.file_path):
+                return None
+            return {
+                "file_path": doc.file_path,
+                "original_filename": doc.original_filename,
+            }
+        finally:
+            db.close()
+
     def search(
         self,
         user_id: int,
@@ -249,11 +503,13 @@ class KnowledgeService:
             raise ValueError("请至少选择一个知识库")
 
         validated_ids = self.validate_kb_access(user_id, knowledge_base_ids)
+        enabled_doc_ids = self.get_enabled_document_ids(user_id, validated_ids)
         results = self.search_engine.search(
             user_id=user_id,
             knowledge_base_ids=validated_ids,
             query=query,
             top_k=top_k,
+            enabled_document_ids=enabled_doc_ids,
         )
         return {
             "query": query,
@@ -390,6 +646,7 @@ class KnowledgeService:
             "file_size": doc.file_size,
             "status": doc.status,
             "chunk_count": doc.chunk_count or 0,
+            "is_enabled": bool(doc.is_enabled) if doc.is_enabled is not None else True,
             "error_message": doc.error_message,
             "created_at": doc.created_at.isoformat() if doc.created_at else None,
             "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,

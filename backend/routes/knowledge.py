@@ -15,7 +15,7 @@
    - POST   `/api/knowledge-bases/<kb_id>/search`  混合检索测试
    - GET    `/api/knowledge/supported`               支持的文件类型与大小限制
 """
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 
 from ..services.auth_token import login_required
 from ..services.knowledge_service import KnowledgeService
@@ -394,6 +394,116 @@ def delete_document(kb_id, doc_id):
         return jsonify({"success": True})
     except Exception as exc:
         return jsonify({"error": f"删除失败: {exc}"}), 500
+
+
+@knowledge_bp.route(
+    "/knowledge-bases/<int:kb_id>/documents/<int:doc_id>/chunks/<int:chunk_id>",
+    methods=["PATCH"],
+)
+@login_required
+def update_document_chunk(kb_id, doc_id, chunk_id):
+    """编辑指定切片内容，文档将进入待重新向量化状态。"""
+    user = get_current_user()
+    data = request.get_json(silent=True) or {}
+    content = data.get("content", "")
+
+    try:
+        result = _service().update_document_chunk(
+            kb_id=kb_id,
+            doc_id=doc_id,
+            chunk_id=chunk_id,
+            user_id=user["id"],
+            content=content,
+        )
+        if not result:
+            return jsonify({"error": "切片或文档不存在"}), 404
+        return jsonify({"success": True, **result})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": f"更新失败: {exc}"}), 500
+
+
+@knowledge_bp.route("/knowledge-bases/<int:kb_id>/documents/<int:doc_id>/reembed", methods=["POST"])
+@login_required
+def reembed_document(kb_id, doc_id):
+    """对文档全部切片重新向量化。"""
+    user = get_current_user()
+
+    try:
+        doc = _service().reembed_document(kb_id, doc_id, user["id"])
+        if not doc:
+            return jsonify({"error": "文档不存在或无权限"}), 404
+        return jsonify({"success": True, "document": doc})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": f"向量化失败: {exc}"}), 500
+
+
+@knowledge_bp.route("/knowledge-bases/<int:kb_id>/documents/batch", methods=["PATCH"])
+@login_required
+def batch_update_documents(kb_id):
+    """批量启用或禁用文档。"""
+    user = get_current_user()
+    data = request.get_json(silent=True) or {}
+    document_ids = data.get("document_ids") or []
+    if not isinstance(document_ids, list) or not document_ids:
+        return jsonify({"error": "请选择至少一个文档"}), 400
+    if "is_enabled" not in data:
+        return jsonify({"error": "缺少 is_enabled 参数"}), 400
+
+    try:
+        updated = _service().update_documents_enabled(
+            kb_id=kb_id,
+            user_id=user["id"],
+            document_ids=[int(doc_id) for doc_id in document_ids],
+            is_enabled=bool(data.get("is_enabled")),
+        )
+        return jsonify({"success": True, "updated": updated})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": f"更新失败: {exc}"}), 500
+
+
+@knowledge_bp.route("/knowledge-bases/<int:kb_id>/documents/<int:doc_id>/download", methods=["GET"])
+@login_required
+def download_document(kb_id, doc_id):
+    """下载原始文档文件。"""
+    user = get_current_user()
+    payload = _service().get_document_download(kb_id, doc_id, user["id"])
+    if not payload:
+        return jsonify({"error": "文档不存在或文件已丢失"}), 404
+    return send_file(
+        payload["file_path"],
+        as_attachment=True,
+        download_name=payload["original_filename"],
+    )
+
+
+@knowledge_bp.route("/knowledge-bases/<int:kb_id>/documents/<int:doc_id>/chunks", methods=["GET"])
+@login_required
+def list_document_chunks(kb_id, doc_id):
+    """列出指定文档的全部分块。"""
+    user = get_current_user()
+
+    chunks = _service().list_document_chunks(kb_id, doc_id, user["id"])
+    if chunks is None:
+        return jsonify({"error": "文档不存在或无权限"}), 404
+    return jsonify({"chunks": chunks})
+
+
+@knowledge_bp.route("/knowledge-bases/<int:kb_id>/documents/<int:doc_id>/content", methods=["GET"])
+@login_required
+def get_document_content(kb_id, doc_id):
+    """获取文档原文（用于切片预览）。"""
+    user = get_current_user()
+
+    payload = _service().get_document_content(kb_id, doc_id, user["id"])
+    if not payload:
+        return jsonify({"error": "文档不存在或无权限"}), 404
+    return jsonify(payload)
 
 
 @knowledge_bp.route("/knowledge-bases/<int:kb_id>/search", methods=["POST"])

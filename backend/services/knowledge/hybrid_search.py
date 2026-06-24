@@ -62,6 +62,7 @@ class HybridSearchEngine:
         knowledge_base_ids: List[int],
         query: str,
         top_k: Optional[int] = None,
+        enabled_document_ids: Optional[List[int]] = None,
     ) -> List[Dict]:
         """执行混合检索，返回与 query 最相关的文档片段列表。
 
@@ -91,10 +92,12 @@ class HybridSearchEngine:
             knowledge_base_ids=knowledge_base_ids,
             query_embedding=self.embedding_client.embed_query(query),
             limit=self.config.KB_VECTOR_CANDIDATES,
+            enabled_document_ids=enabled_document_ids,
         )
         all_chunks = self.vector_store.fetch_chunks_for_kb(
             user_id=user_id,
             knowledge_base_ids=knowledge_base_ids,
+            enabled_document_ids=enabled_document_ids,
         )
         bm25_candidates = self.bm25_retriever.search(
             query=query,

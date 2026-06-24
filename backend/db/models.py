@@ -189,6 +189,7 @@ class KbDocument(Base):
     file_extension = Column(String(20), nullable=False)
     status = Column(String(20), default="pending")
     chunk_count = Column(Integer, default=0)
+    is_enabled = Column(Boolean, default=True, nullable=False)
     error_message = Column(String(500))
     created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
     updated_at = Column(

@@ -3,18 +3,18 @@ import logging
 import threading
 
 from langgraph.checkpoint.postgres import PostgresSaver
-from psycopg_pool import ConnectionPool
+
+from backend.db.postgres_pool import get_postgres_pool
 
 logger = logging.getLogger(__name__)
 
 _checkpointer = None
-_pool = None
 _lock = threading.Lock()
 
 
 def init_checkpointer(config) -> PostgresSaver:
     """初始化 Postgres checkpointer 并建表（幂等）。"""
-    global _checkpointer, _pool
+    global _checkpointer
     with _lock:
         if _checkpointer is not None:
             return _checkpointer
@@ -23,16 +23,8 @@ def init_checkpointer(config) -> PostgresSaver:
         # setup 含 CREATE INDEX CONCURRENTLY，必须在 autocommit 连接上执行
         with PostgresSaver.from_conn_string(conn_string) as setup_saver:
             setup_saver.setup()
-        _pool = ConnectionPool(
-            conninfo=conn_string,
-            max_size=10,
-            open=True,
-            check=ConnectionPool.check_connection,
-            max_idle=300,
-            reconnect_timeout=300,
-            kwargs={"connect_timeout": 10},
-        )
-        _checkpointer = PostgresSaver(_pool)
+        pool = get_postgres_pool(config)
+        _checkpointer = PostgresSaver(pool)
         logger.info("Postgres checkpointer 已初始化: %s", config.POSTGRES_HOST)
         return _checkpointer
 

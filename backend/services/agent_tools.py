@@ -1,9 +1,11 @@
 """Agent 工具定义 — 供 create_agent 使用。"""
 from datetime import datetime
+from typing import Annotated
 
 import pytz
 from langchain_core.tools import tool
 from langgraph.config import get_stream_writer
+from pydantic import Field
 
 from .knowledge.context import get_knowledge_context
 
@@ -12,13 +14,30 @@ def build_agent_tools(search_service, knowledge_service=None):
     """构建 Agent 工具列表（注入 search_service / knowledge_service）。"""
 
     @tool
-    def web_search(query: str) -> str:
-        """搜索互联网获取最新信息。当用户询问新闻、价格、天气、实时数据或需要联网验证的问题时使用。"""
+    def web_search(
+        query: Annotated[
+            str,
+            Field(
+                description=(
+                    "搜索关键词。从用户问题提炼核心检索词，通常 3-15 个词；"
+                    "保留主题、实体名称及必要的时间/地点限定；与用户问题使用相同语言；"
+                    "不要粘贴整句原话、礼貌用语或对话上下文。"
+                )
+            ),
+        ],
+    ) -> str:
+        """搜索互联网，获取新闻、价格、天气、实时数据等最新公开信息。
+
+        适用：问题依赖当前/实时信息，或需要联网核实的事实。
+        不适用：用户已选知识库且问题应查内部文档（优先 knowledge_search）；
+        纯概念解释、代码编写、或仅凭对话上下文即可回答的问题。
+        """
         writer = get_stream_writer()
         if writer:
             writer({"type": "tool_status", "tool": "web_search", "status": "start", "message": "正在搜索..."})
         try:
-            result = search_service.search(query=query)
+            normalized_query = " ".join(query.split())
+            result = search_service.search(query=normalized_query)
         except Exception as e:
             result = f"搜索失败: {str(e)}"
         if writer:

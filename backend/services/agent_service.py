@@ -78,13 +78,13 @@ class AgentService:
             agent.update_state(config, {"messages": seed_messages})
 
     def run_agent_stream(
-        self,
-        provider_id: str,
-        session_id: int,
-        user_message: HumanMessage,
-        seed_messages: Optional[List] = None,
-        user_id: Optional[int] = None,
-        knowledge_base_ids: Optional[List[int]] = None,
+            self,
+            provider_id: str,
+            session_id: int,
+            user_message: HumanMessage,
+            seed_messages: Optional[List] = None,
+            user_id: Optional[int] = None,
+            knowledge_base_ids: Optional[List[int]] = None,
     ) -> Generator[str, None, None]:
         """流式运行 Agent，yield SSE 事件。"""
         from .knowledge.context import clear_knowledge_context, set_knowledge_context
@@ -104,9 +104,9 @@ class AgentService:
 
         try:
             for mode, chunk in agent.stream(
-                {"messages": [user_message]},
-                config=config,
-                stream_mode=["messages", "updates", "custom"],
+                    {"messages": [user_message]},
+                    config=config,
+                    stream_mode=["messages", "updates", "custom"],
             ):
                 if mode == "messages":
                     token, _metadata = chunk
@@ -159,11 +159,11 @@ class AgentService:
         finally:
             clear_knowledge_context()
 
+    @staticmethod
     def _events_from_update_message(
-        self,
-        msg,
-        tool_calls_log: List[Dict],
-        pending_tools: Dict[str, Dict],
+            msg,
+            tool_calls_log: List[Dict],
+            pending_tools: Dict[str, Dict],
     ) -> Generator[str, None, None]:
         """从 updates 流解析 tool 事件。"""
         if isinstance(msg, AIMessage) and msg.tool_calls:

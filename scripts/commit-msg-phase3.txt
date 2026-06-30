@@ -1,4 +1,0 @@
-feat(frontend): 阶段3 React 聊天核心（SSE + Zustand + Markdown）
-
-实现完整聊天页：会话侧栏、流式 SSE、文件上传、模型/Agent 切换，
-对齐原 chat.html 功能；新增 chatStore、useChatStream 与 chat.css。
